@@ -1,0 +1,22 @@
+<launch>
+  <param name="robot_description"
+    command="$(find xacro)/xacro --inorder '$(find testing)/urdf/ugv.xacro'" />
+
+  <!-- send fake joint values -->
+  <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher">
+    <param name="use_gui" value="FALSE"/>
+  </node>
+
+  <!-- Combine joint values -->
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="state_publisher"/>
+
+  <!-- broadcast tf transform from world to chassis -->
+  <!-- <node name="odometry_publisher" pkg="testing" type="odometry_publisher" /> -->
+
+  <node name="slam_gmapping" pkg="gmapping" type="slam_gmapping" args="scan:=ugv/laser/scan _base_frame:=base_footprint" />
+
+  <!-- Show in Rviz   -->
+  <!-- <node name="rviz" pkg="rviz" type="rviz" args="-d $(find testing)/launch/ugv.rviz"/> -->
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find testing)/rviz/urdf.rviz"/>
+
+</launch>
