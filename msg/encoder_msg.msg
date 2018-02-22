@@ -1,0 +1,2 @@
+int64 encoder1_count
+int64 encoder2_count
