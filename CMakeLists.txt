@@ -90,4 +90,13 @@ target_link_libraries(motor_control
   motor_control_library
   )
 
+#encoder to odom
+add_executable(encoder_to_odom
+  src/encoder_to_odom.cpp
+  )
+
+target_link_libraries(encoder_to_odom
+  ${catkin_LIBRARIES}
+  )
+
 

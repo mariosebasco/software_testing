@@ -49,8 +49,9 @@ int main(int argc, char *argv[])
 
   //variables
   int encoder1_count, encoder2_count, vel_motor1, vel_motor2;
-  float gain = 0.75;
-
+  float linear_gain = 0.75;
+  float angular_gain = 0.5;
+  
   // set encoder1 count to 0
   std::cout<<"- SetCommand(_C, 1, 0)...";
   if((status = device.SetCommand(_C, 1, 0)) != RQ_SUCCESS) {
@@ -99,12 +100,12 @@ int main(int argc, char *argv[])
     
     //calculate speeds
     if (should_start) {
-      vel_motor1 = int((controller_state.axes[1] - controller_state.axes[3])*gain*1000.0);
-      vel_motor2 = -int((controller_state.axes[1] + controller_state.axes[3])*gain*1000.0);
+      vel_motor1 = int((controller_state.axes[1]*linear_gain - controller_state.axes[3]*angular_gain)*1000.0);
+      vel_motor2 = -int((controller_state.axes[1]*linear_gain + controller_state.axes[3]*angular_gain)*1000.0);
 
       //set vel for motor 1
       if((status = device.SetCommand(_G, 1, vel_motor1)) != RQ_SUCCESS) {
-	std::cout<<"failed --> "<<status<<std::endl;
+  	std::cout<<"failed --> "<<status<<std::endl;
       }
 
       // //Wait 10 ms before sending another command to device
@@ -112,10 +113,10 @@ int main(int argc, char *argv[])
     
       //set vel for motor 2
       if((status = device.SetCommand(_G, 2, vel_motor2)) != RQ_SUCCESS) {
-	std::cout<<"failed --> "<<status<<std::endl;
+  	std::cout<<"failed --> "<<status<<std::endl;
       }
     }
-
+  
     ros::spinOnce();
     loop_rate.sleep();
   }    

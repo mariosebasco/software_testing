@@ -20,11 +20,11 @@
   <xacro:include filename="$(find testing)/urdf/materials.xacro" />
 
   <!-- Used for fixing robot to Gazebo 'base_link' -->
-  <link name="base_footprint"/>
+  <link name="odom"/>
 
   <joint name="footprint_joint" type="fixed">
     <origin xyz="0 0 0" rpy="0 0 0"/>
-    <parent link="base_footprint"/>
+    <parent link="odom"/>
     <child link="chassis"/>
   </joint>
 

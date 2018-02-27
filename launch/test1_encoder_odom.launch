@@ -1,0 +1,7 @@
+<launch>
+
+  <node name="imu" pkg="testing" type="imu" />
+  <node name="motor_control" pkg="testing" type="motor_control" />
+  <node name="encoder_to_odom" pkg="testing" type="encoder_to_odom" />
+
+</launch>
