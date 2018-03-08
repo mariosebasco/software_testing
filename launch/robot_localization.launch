@@ -1,6 +1,9 @@
 <launch>
   <node pkg="robot_localization" type="ekf_localization_node" name="ekf_se" clear_params="true">
 
+    <remap from="odometry/filtered" to="odom" />
+    <remap from="tf" to="tf_ekf" />
+       
     <param name="frequency" value="30"/>
     <param name="sensor_timeout" value="0.1"/>
     <param name="two_d_mode" value="false"/>
@@ -11,7 +14,7 @@
     <param name="base_link_frame" value="chassis"/>
     <param name="world_frame" value="odom"/>    
 
-    <param name="odom0" value="/odom"/>
+    <param name="odom0" value="/odom_encoder"/>
     <param name="imu0" value="/imu_data"/>
 
     <rosparam param="odom0_config">[true,  true,  false,
@@ -45,7 +48,7 @@
                                                 0.0, 0.0, 0.0, 0.0, 0.00, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0,
                                                 0.0, 0.0, 0.0, 0.0, 0.00, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0,
                                                 0.0, 0.0, 0.0, 0.0, 0.00, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.015]</rosparam>
-                                          
+
     
   </node>
 </launch>

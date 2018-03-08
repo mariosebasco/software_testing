@@ -26,7 +26,7 @@ void encoder_callback(testing::encoder_msg msg) {
 }
 
 void imu_callback(sensor_msgs::Imu imu_data) {
-  tf::Quaternion q(imu_data.orientation.x, imu_data.orientation.y, imu_data.orientation.z, imu_data.orientation.w);
+  tf::Quaternion q(0.0, 0.0, imu_data.orientation.z, imu_data.orientation.w);
   tf::Matrix3x3 m(q);
   double roll_temp, pitch_temp;
   m.getRPY(roll_temp, pitch_temp, THETA);
@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
   ros::Subscriber sub = nh.subscribe("encoder_counts", 1, encoder_callback);
   ros::Subscriber imu_sub = nh.subscribe("imu_data", 1, imu_callback);
   ros::Publisher odom_pub;
-  odom_pub = nh.advertise<nav_msgs::Odometry>("odom", 1);
+  odom_pub = nh.advertise<nav_msgs::Odometry>("odom_encoder", 1);
 
   nav_msgs::Odometry odom_data;
   
@@ -57,13 +57,11 @@ int main(int argc, char *argv[]) {
 
   /* ************************************************** */
   //tf variables (testing)
-  tf::TransformBroadcaster odom_broadcaster;
-  geometry_msgs::TransformStamped odom_trans;
+  // tf::TransformBroadcaster odom_broadcaster;
+  // geometry_msgs::TransformStamped odom_trans;
   /* **************************************************  */
 
-  int prev_count1, prev_count2, del_count1, del_count2;
-  prev_count1 = encoder1_count;
-  prev_count2 = encoder2_count;
+  int del_count1, del_count2;
 
   ros::Time current_time, prev_time;
   current_time = ros::Time::now();
@@ -81,8 +79,11 @@ int main(int argc, char *argv[]) {
     current_time = ros::Time::now();
     
     //encoder count change
-    del_count1 = encoder1_count - prev_count1;
-    del_count2 = encoder2_count - prev_count2;
+    // del_count1 = encoder1_count - prev_count1;
+    // del_count2 = encoder2_count - prev_count2;
+    del_count1 = encoder1_count;
+    del_count2 = encoder2_count;
+
 
     //wheel rotational velocity
     w1 = (del_count1*rad_to_tick)/(current_time - prev_time).toSec();
@@ -94,8 +95,11 @@ int main(int argc, char *argv[]) {
 
     //car forward and rotational velocity
     v = (v1 + v2)/2.0;
-    w = (v1 - v2)/L;
+    w = (v2 - v1)/L;
 
+    //debbuging
+    //ROS_INFO("v: %f", v);
+    
     //car rotational velocity and position
     vtheta = w;
     //theta += vtheta*(current_time - prev_time).toSec();
@@ -161,8 +165,8 @@ int main(int argc, char *argv[]) {
     /* **************************************************  */
 
     //update time and counts
-    prev_count1 = encoder1_count;
-    prev_count2 = encoder2_count;
+    // prev_count1 = encoder1_count;
+    // prev_count2 = encoder2_count;
     prev_time = current_time;
 
     loop_rate.sleep();

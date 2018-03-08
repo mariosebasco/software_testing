@@ -1,0 +1,17 @@
+<launch>
+
+  <arg name="use_controller" default="0" />
+  <arg name="RPM" default="56" />
+
+  
+  <node name="joy_node" pkg="joy" type="joy_node" />
+  <node name="imu" pkg="testing" type="imu" />
+  <node name="ugv_control" pkg="testing" type="ugv_control" output="screen">
+    <param name="use_controller" value="$(arg use_controller)"/>
+    <param name="RPM" value="$(arg RPM)"/>
+  </node>
+  <node name="encoder_to_odom" pkg="testing" type="encoder_to_odom" />
+  <include file="$(find testing)/launch/robot_localization.launch" />
+  <node name="urg_node" pkg="urg_node" type="urg_node" args="_ip_address:=192.168.0.10 _frame_id:=hokuyo_link _angle_min:=-1.5707963 _angle_max:=1.5707963"/>
+
+</launch>
