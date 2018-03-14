@@ -95,3 +95,18 @@ add_executable(tf_publisher
 target_link_libraries(tf_publisher
   ${catkin_LIBRARIES}
   )
+
+#testing stuff
+add_library(nav_lib
+  nav_lib/track.cpp
+  nav_lib/collision.cpp
+  )
+
+add_executable(state_controller
+  src/state_controller.cpp
+  )
+
+target_link_libraries(state_controller
+  ${catkin_LIBRARIES}
+  nav_lib
+  )

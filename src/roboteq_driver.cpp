@@ -172,11 +172,18 @@ public:
     if(use_controller) {
       should_start = 1;
     }
+
     if(msg.buttons[0] || msg.buttons[1] || msg.buttons[2] || msg.buttons[3]) {
       //EMERGENCY STOP
       if((status = device.SetCommand(_EX, 1)) != RQ_SUCCESS) {
 	std::cout<<"failed --> "<<status<<std::endl;
       }
+    }
+    else if(msg.buttons[4]) {
+      use_controller = 1;
+    }
+    else if(msg.buttons[5]) {
+      use_controller = 0;
     }
     else {
       controller_state = msg;
@@ -290,7 +297,7 @@ int main(int argc, char *argv[]) {
 	vel_motor1 = -int(((roboteq_object.cmd_vel.linear.x - L*roboteq_object.cmd_vel.angular.z/2.0)*60.0/(2.0*M_PI*wheel_radius))*1000.0/RPM);
 	vel_motor2 = int(((roboteq_object.cmd_vel.linear.x + L*roboteq_object.cmd_vel.angular.z/2.0)*60.0/(2.0*M_PI*wheel_radius))*1000.0/RPM);
       
-	//ISSUE WHEN IT's NEGATIVE?
+	//Keep within bounds
 	vel_motor1 = vel_motor1 > 1000 ? 1000 : vel_motor1;
 	vel_motor2 = vel_motor2 > 1000 ? 1000 : vel_motor2;
 	vel_motor1 = vel_motor1 < -1000 ? -1000 : vel_motor1;

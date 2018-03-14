@@ -9,7 +9,7 @@ from geometry_msgs.msg import PoseStamped
 
 if __name__ == '__main__' :
 
-    pub = rospy.Publisher('global_path', Path, queue_size=1)
+    pub = rospy.Publisher('move_base/TrajectoryPlannerROS/local_plan', Path, queue_size=1)
     rospy.init_node('global_map_node', anonymous=True)
     rate = rospy.Rate(5)
 
@@ -19,7 +19,7 @@ if __name__ == '__main__' :
     for i in range(20):
         pose = PoseStamped()
         pose.pose.position.x += 0.1*i
-        pose.pose.position.y += 0.1*i
+        pose.pose.position.y += 0.0
         pose.pose.position.z += 0.0
 
         pose.pose.orientation.x = 0.0
