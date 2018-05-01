@@ -294,8 +294,8 @@ int main(int argc, char *argv[]) {
       }
       else { //convert cmd_vel data to RPM ratio
 	//convert m/s to RPM
-	vel_motor1 = -int(((roboteq_object.cmd_vel.linear.x - L*roboteq_object.cmd_vel.angular.z/2.0)*60.0/(2.0*M_PI*wheel_radius))*1000.0/RPM);
-	vel_motor2 = int(((roboteq_object.cmd_vel.linear.x + L*roboteq_object.cmd_vel.angular.z/2.0)*60.0/(2.0*M_PI*wheel_radius))*1000.0/RPM);
+	vel_motor1 = -int(((roboteq_object.cmd_vel.linear.x + L*roboteq_object.cmd_vel.angular.z/2.0)*60.0/(2.0*M_PI*wheel_radius))*1000.0/RPM);
+	vel_motor2 = int(((roboteq_object.cmd_vel.linear.x - L*roboteq_object.cmd_vel.angular.z/2.0)*60.0/(2.0*M_PI*wheel_radius))*1000.0/RPM);
       
 	//Keep within bounds
 	vel_motor1 = vel_motor1 > 1000 ? 1000 : vel_motor1;
@@ -311,7 +311,18 @@ int main(int argc, char *argv[]) {
       }
     }
     batt_volts = roboteq_object.battVoltStatus();
-   
+
+    //We want to make sure the robot stops moving if it stops receiving signals
+    roboteq_object.controller_state.axes.push_back(0.0);
+    roboteq_object.controller_state.axes.push_back(0.0);
+    roboteq_object.controller_state.axes.push_back(0.0);
+    roboteq_object.controller_state.axes.push_back(0.0);
+    roboteq_object.controller_state.axes.push_back(0.0);
+    roboteq_object.controller_state.axes.push_back(0.0);
+
+    // roboteq_object.cmd_vel.linear.x = 0.0;
+    // roboteq_object.cmd_vel.angular.z = 0.0;
+    
     ros::spinOnce();
     loop_rate.sleep();
 

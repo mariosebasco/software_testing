@@ -1,6 +1,6 @@
 <launch>
 
   <node name="tf_publisher" pkg="testing" type="tf_publisher" />
-  <node name="slam_gmapping" pkg="gmapping" type="slam_gmapping" args="_base_frame:=chassis" />
+  <node name="slam_gmapping" pkg="gmapping" type="slam_gmapping" args="_base_frame:=chassis _odom_frame:=/odom_local" />
 
 </launch>

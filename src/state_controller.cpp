@@ -10,102 +10,75 @@
  *
  */
 
-#include <iostream>
 
-#include "track.h"
-#include "nav_msgs/OccupancyGrid.h"
+#include "state_controller.h"
+
+TrackerStates StateController::tracker_state = NOT_TRACKING;
+CollisionStates StateController::collision_state = NO_CRASH;
+VideoStates StateController::video_state = NOT_RECORDING;
+
 
 /***********************************************************************
  *                                                                     *
  *                      MAIN FUNCTION                                  *
  *                                                                     *
  *********************************************************************/
-// int main(int argc, char **argv) {
-//   ros::init(argc, argv, "sample_node");
-
-  
-//   TrackPoint *trackPointObject = new TrackPoint();
-
-//   // float x_floats[] = {0.707, 1.0, 0.707, 0.0, -0.707, -1.0, -0.707, 0.0, 0.0}; //CIRCLE TESTING
-//   // float y_floats[] = {0.2928, 1.0, 1.707, 2.0, 1.707, 1.0, 0.2928, 0.0, 0.0};
-
-//   float x_floats[] = {1.0, 2.0, 3.0, 4.0, 4.0}; //STRAIGHT LINE TESTING
-//   float y_floats[] = {0.0, 0.0, 0.0, 0.0, 0.0};
-
-//   geometry_msgs::Pose desired_poses[2];
-  
-//   ros::Rate loop_rate(10);
-//   bool should_continue = true;
-  
-//   while(ros::ok()) {
-//     trackPointObject->updateOdom();
-
-//     if(trackPointObject->should_start && should_continue) {
-//       for(int i = 0; i < sizeof(x_floats)/4; i++) {
-// 	desired_poses[0].position.x = x_floats[i];
-// 	desired_poses[0].position.y = y_floats[i];
-// 	desired_poses[0].orientation.w = 1.0;
-	
-// 	desired_poses[1].position.x = x_floats[i+1];
-// 	desired_poses[1].position.y = y_floats[i+1];
-// 	desired_poses[1].orientation.w = 1.0;
-	
-// 	trackPointObject->tracker(desired_poses);
-// 	std::cout << "reached position at desired tolerance" << std::endl;
-//       }
-//       //should_continue = false;
-//     }
-
-//     loop_rate.sleep();
-//   }
-  
-//   std::cout << "EXITING" << std::endl;
-//   delete trackPointObject;
-  
-//   return 0;
-// }
-
-
-void cb(nav_msgs::OccupancyGrid msg) {
-  std::cout << msg.header.frame_id <<std::endl;
-  std::cout << msg.info.origin.position.x <<std::endl;
-  std::cout << msg.info.origin.position.y <<std::endl;
-  std::cout << msg.info.resolution <<std::endl;
-  std::cout << msg.info.width <<std::endl;
-  std::cout << msg.info.height <<std::endl;
-
-  int myInt = 0;
-  int count = 0;
-  while(myInt == 0) {
-    myInt = msg.data[count];
-    count ++;
-  }
-  std::cout << myInt <<std::endl;
-  std::cout << count <<std::endl;
-  printf("%d\n", msg.data[19949]);
-  //std::cout << msg.data[7463] <<std::endl;
-  // std::cout << "data" <<std::endl;
-  // for(int i = 7464; i < 7500; i++) {
-  //   std::cout << msg.data[i] <<std::endl;
-  // }
-  
-}
-
-//testing
 int main(int argc, char **argv) {
   ros::init(argc, argv, "sample_node");
-  ros::NodeHandle nh;
-  ros::Subscriber grid_sub;
-  grid_sub = nh.subscribe("move_base/local_costmap/costmap", 1, cb);
-  //grid_sub = nh.subscribe("map", 1, cb);
 
-  ros::Rate loop_rate(0.5);
+  TrackPoint *trackPointObject = new TrackPoint();
+  Collision *collisionObject = new Collision();
+  Video *videoObject = new Video();
+  //TransformGPS *gpsObject = new TransformGPS();
+  
+  bool will_collide;
+  int ret;
+  
+  double rate = 20.0;
+  int priority = 10;
+  double move_time = 2.0; //seconds
+  double resolution = 0.5; //seconds
+
+  //initialize GPS converter and wait for first reading;
+  // ret = gpsObject->Init();
+  // while(!gpsObject->received_data) {}
+    
+  ros::Rate loop_rate(10);
+
+  ret = collisionObject->Init((char *) "collisionTask", rate, priority, move_time, resolution);
 
   while(ros::ok()) {
-    ros::spinOnce();
-    
+    ret = trackPointObject->Init();//gpsObject->init_northing, gpsObject->init_easting);
+      
+    //wait for the vehicle to start moving
+    while(ros::ok() && StateController::tracker_state == NOT_TRACKING) {/**/}
+    while(ros::ok() && StateController::tracker_state == TRACKING) {
+      //printf("in tracking loop\n");
+      if(StateController::collision_state == CRASH) {
+	printf("crashed\n");
+	trackPointObject->goal_interrupt = true;
+	trackPointObject->publishSpeed(0.0, 0.0);
+      }
+    }
+    std::cout << "PATH COMPLETE" <<std::endl;
+    break;
+    //take a video for 10 seconds
+    // videoObject->Init(10, 1);
+    // while(StateController::video_state == NOT_RECORDING) {} //wait for it to start recording
+    // while(StateController::video_state == RECORDING) {
+    // 	trackPointObject->publishSpeed(0.0, 0.2);
+    // } //wait for it to finish recording
+    // break;
+
     loop_rate.sleep();
   }
+
+  std::cout << "EXITING" << std::endl;
+  delete trackPointObject;
+  delete collisionObject;
+  delete videoObject;
   
   return 0;
 }
+
+	   

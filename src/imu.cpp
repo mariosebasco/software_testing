@@ -95,15 +95,15 @@ int main(int argc, char **argv)
     Imu_data.orientation.x = quaternion.x;
     Imu_data.orientation.y = quaternion.y;
     Imu_data.orientation.z = quaternion.z;
-    Imu_data.orientation.w = -quaternion.w;
+    Imu_data.orientation.w = quaternion.w;
     
     Imu_data.linear_acceleration.x = acceleration.c0;
-    Imu_data.linear_acceleration.y = -acceleration.c1;
-    Imu_data.linear_acceleration.z = -acceleration.c2;
+    Imu_data.linear_acceleration.y = acceleration.c1;
+    Imu_data.linear_acceleration.z = acceleration.c2;
 
     Imu_data.angular_velocity.x = angular_vel.c0;
-    Imu_data.angular_velocity.y = -angular_vel.c1;
-    Imu_data.angular_velocity.z = -angular_vel.c2;
+    Imu_data.angular_velocity.y = angular_vel.c1;
+    Imu_data.angular_velocity.z = angular_vel.c2;
 
     Imu_data.orientation_covariance[0] = magneticVariance.c0;
     Imu_data.orientation_covariance[4] = magneticVariance.c1;

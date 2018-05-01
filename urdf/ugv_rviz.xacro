@@ -19,8 +19,10 @@
   <!-- Import Rviz colors -->
   <!-- <xacro:include filename="$(find testing)/urdf/materials.xacro" /> -->
 
-  <!-- Used for fixing robot to Gazebo 'base_link' -->
-  <link name="odom"/>
+  <!-- fixed odom  -->
+  <link name="odom">
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </link>
 
   <joint name="footprint_joint" type="fixed">
     <origin xyz="0 0 0" rpy="0 0 0"/>

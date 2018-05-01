@@ -1,17 +1,47 @@
+
 <launch>
 
   <arg name="use_controller" default="0" />
   <arg name="RPM" default="56" />
+  <!-- <arg name="should_calibrate" default="false" /> -->
 
+  <param name="calibration_value" type="double" value="0.0"/>
   
+  <!-- form path-->
+  <node name="convert_gps" pkg="testing" type="convert_gps"/>
+  
+  <!-- GPS setup-->
+  <include file="$(find testing)/launch/gps.launch" />
+
+  <!-- xbox controller-->
   <node name="joy_node" pkg="joy" type="joy_node" />
+
+  <!-- IMU setup -->
   <node name="imu" pkg="testing" type="imu" />
+
+  <!-- main driver -->
   <node name="ugv_control" pkg="testing" type="ugv_control" output="screen">
     <param name="use_controller" value="$(arg use_controller)"/>
     <param name="RPM" value="$(arg RPM)"/>
   </node>
-  <node name="encoder_to_odom" pkg="testing" type="encoder_to_odom" />
+
+  <!-- Publishes odometry data from encoder counts-->
+  <node name="encoder_to_odom" pkg="testing" type="encoder_to_odom" output="screen"/>
+
+  <!-- robot localization ekf -->
   <include file="$(find testing)/launch/robot_localization.launch" />
+
+  <!-- local localization node for mapping and obstacle avoidance -->
+  <include file="$(find testing)/launch/robot_localization_local.launch" />
+
+  
+  <!-- LiDAR-->
   <node name="urg_node" pkg="urg_node" type="urg_node" args="_ip_address:=192.168.0.10 _frame_id:=hokuyo_link _angle_min:=-1.5707963 _angle_max:=1.5707963"/>
 
+  <!-- create costmap from laser scan -->
+  <include file="$(find costmap_2d)/launch/example.launch" />
+  
+  <!-- add some extra tf frames -->
+  <remap from="tf" to="tf_local" />
+  <node name="tf_publisher" pkg="testing" type="tf_publisher"/> 
 </launch>

@@ -1,0 +1,10 @@
+<launch>
+
+  <remap from="odom" to="odom/gps_raw" />
+  
+  <include file="$(find novatel_gps_driver)/launch/tester_for_usb.launch"/>
+  <node name="utm_odometry_node" pkg="gps_common" type="utm_odometry_node"/>
+
+  <!-- <include file="$(find testing)/launch/robot_localization_local.launch"/> -->
+  
+</launch>

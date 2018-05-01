@@ -1,0 +1,3 @@
+<launch>
+  <node name="calibration_test" pkg="testing" type="calibration_test"/>
+</launch>

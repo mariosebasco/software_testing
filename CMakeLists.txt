@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(testing)
 
+#add_compile_options(-std=c++11)
+
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
@@ -42,6 +44,7 @@ include_directories(
   ${SDFormat_INCLUDE_DIRS}
   vncpplib/include
   roboteQ/include
+  utm_lib
 )
 
 #IMU
@@ -82,11 +85,6 @@ target_link_libraries(encoder_to_odom
   ${catkin_LIBRARIES}
   )
 
-#add library for global planner plug in
-add_library(global_planner_lib
-  src/global_planner.cpp
-  )
-
 #publish tf data
 add_executable(tf_publisher
   src/tf_pub.cpp
@@ -98,8 +96,13 @@ target_link_libraries(tf_publisher
 
 #testing stuff
 add_library(nav_lib
+  nav_lib/PeriodicTask.cpp
+  nav_lib/ThreadTask.cpp
+  nav_lib/AperiodicTask.cpp
   nav_lib/track.cpp
   nav_lib/collision.cpp
+  nav_lib/video.cpp
+  nav_lib/transform_gps.cpp
   )
 
 add_executable(state_controller
@@ -110,3 +113,23 @@ target_link_libraries(state_controller
   ${catkin_LIBRARIES}
   nav_lib
   )
+
+#publish gps long and lat from received path
+add_executable(convert_gps
+  src/convert_gps.cpp
+  )
+
+target_link_libraries(convert_gps
+  ${catkin_LIBRARIES}
+  )
+
+#calibrate imu offset
+add_executable(calibration_test
+  src/calibration_test.cpp
+  )
+
+target_link_libraries(calibration_test
+  ${catkin_LIBRARIES}
+  nav_lib
+  )
+

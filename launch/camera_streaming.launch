@@ -1,0 +1,13 @@
+<launch>
+
+  <arg name="path" default="$(find testing)/videos"/>
+  <arg name="video_number" default="0" />
+  
+  <node name="camera_node" pkg="libuvc_camera" type="camera_node" />
+
+  <node name="camera_recorder" pkg="image_view" type="video_recorder" respawn="false">
+    <remap from="image" to="image_raw" />
+    <param name="filename" value="$(arg path)/video_$(arg video_number).avi"/>
+  </node>
+
+</launch>
