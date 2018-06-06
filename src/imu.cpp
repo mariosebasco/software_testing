@@ -1,17 +1,17 @@
 /*
- *
- *
- *
+ * This script publishes the IMU data
+ * Because of uncertainty in the magnetometer data I am going to average it with 
+ * consecutive GPS readings
  *
  *
  */
+
 #include "ros/ros.h"
 #include "sensor_msgs/Imu.h"
-#include "sensor_msgs/MagneticField.h"
-#include "sensor_msgs/FluidPressure.h"
-#include "sensor_msgs/Temperature.h"
 #include "std_msgs/String.h"
 #include "tf/transform_broadcaster.h"
+// #include "nav_msgs/Odometry.h"
+// #include "testing/encoder_msg.h"
 
 #include <stdio.h>
 #include "vn100.h"
@@ -19,6 +19,24 @@
 
 const char* const COM_PORT = "/dev/ttyUSB0";
 const int BAUD_RATE = 115200;
+
+// bool received_gps_data = false;
+// nav_msgs::Odometry gps_odom;
+// nav_msgs::Odometry prev_gps_odom;
+// int encoder1_count = 0;
+// int encoder2_count = 0;
+
+// void encoder_callback(testing::encoder_msg msg) {
+//   encoder1_count = msg.encoder1_count;
+//   encoder2_count = msg.encoder2_count;
+// }
+
+// void odom_callback(nav_msgs::Odometry msg) {
+//   if(!received_gps_data) {prev_gps_odom = msg;}
+
+//   received_gps_data = true;
+//   gps_odom = msg;
+// }
 
 int main(int argc, char **argv)
 {
@@ -28,6 +46,8 @@ int main(int argc, char **argv)
 	
   ros::NodeHandle n;
   ros::Publisher imu_pub = n.advertise<sensor_msgs::Imu>("imu_data", 1000);
+  // ros::Subscriber odom_sub = n.subscribe("odom/gps_raw", 1, odom_callback);
+  // ros::Subscriber encoder_sub = n.subscribe("encoder_counts", 1, encoder_callback);
 
   ros::Rate loop_rate(10);
 
@@ -44,6 +64,7 @@ int main(int argc, char **argv)
 
   double angularWalkVariance;
   VnVector3 angularRateVariance, magneticVariance, accelerationVariance;
+  double imu_drift;
   
   char tmp_msg[50];
 
@@ -72,6 +93,8 @@ int main(int argc, char **argv)
   while (ros::ok())
   {
 
+    ros::spinOnce();
+
     errorCode = vn100_getQuaternion(&vn100, &quaternion);
     errorCode = vn100_getAcceleration(&vn100, &acceleration);
     errorCode = vn100_getAngularRate(&vn100, &angular_vel);
@@ -92,14 +115,55 @@ int main(int argc, char **argv)
     Imu_data.header.frame_id = "chassis";
 
     //convert imu axis to chassis axis
-    Imu_data.orientation.x = quaternion.x;
-    Imu_data.orientation.y = quaternion.y;
+    Imu_data.orientation.x = 0.0;
+    Imu_data.orientation.y = 0.0;
     Imu_data.orientation.z = quaternion.z;
     Imu_data.orientation.w = quaternion.w;
+
+    n.getParam("/calibration_value", imu_drift);
+    printf("calibration value: %f\n", imu_drift);
+    if(imu_drift != 0.0) {
+      //average orientation obtained from magnetometer and consecutive gps points
+      // double del_northing = gps_odom.pose.pose.position.x - prev_gps_odom.pose.pose.position.x;
+      // double del_easting = gps_odom.pose.pose.position.y - prev_gps_odom.pose.pose.position.y;
+      
+      // if((encoder1_count == 0 && encoder2_count == 0) || encoder1_count == -encoder2_count) {
+      // 	printf("no movement\n");
+      // }
+      // else {
+      // 	double theta_gps = atan2(del_easting, del_northing);
+
+      // 	tf::Quaternion imu_quat = tf::Quaternion(0.0, 0.0, quaternion.z, quaternion.w);
+      // 	double theta_imu = imu_quat.getAngle();
+      // 	if(theta_imu > M_PI) theta_imu -= 2*M_PI;
+      
+      // 	double theta_average = (theta_imu + theta_gps)/2.0;
+
+      // 	tf::Quaternion averaged_quat = tf::createQuaternionFromRPY(0.0, 0.0, theta_average);
+
+      // 	Imu_data.orientation.z = averaged_quat[2];
+      // 	Imu_data.orientation.w = averaged_quat[3];
+      
+      // 	printf("theta_gps: %f\n", theta_gps);
+      // 	printf("theta_imu: %f\n", theta_imu);
+      // 	printf("theta_average: %f\n", theta_average);
+      // }
+      
+      tf::Quaternion odom_quat = tf::Quaternion(0.0, 0.0, quaternion.z, quaternion.w);
+      tf::Quaternion imu_quat = tf::createQuaternionFromRPY(0.0, 0.0, imu_drift);
+      odom_quat = imu_quat*odom_quat;
+      odom_quat.normalize();
+
+      Imu_data.orientation.z = odom_quat[2];
+      Imu_data.orientation.w = odom_quat[3];
+      
+      printf("calibrated yaw: %f\n", getYaw(odom_quat));
+    }
+
     
     Imu_data.linear_acceleration.x = acceleration.c0;
     Imu_data.linear_acceleration.y = acceleration.c1;
-    Imu_data.linear_acceleration.z = acceleration.c2;
+    Imu_data.linear_acceleration.z = 0.0;//acceleration.c2;
 
     Imu_data.angular_velocity.x = angular_vel.c0;
     Imu_data.angular_velocity.y = angular_vel.c1;

@@ -20,23 +20,15 @@
 #include <tf/transform_broadcaster.h>
 #include <vector>
 
-#include "state_controller.h"
-#include "PeriodicTask.h"
-
-class Collision: public PeriodicTask {
+class Collision {
  public:
   bool received_map;
   bool received_odom;
     
-  struct position{
-    double x_pos;
-    double y_pos;
-    double theta;
-  } positionStruct;
-  
   Collision();
-  int Init(char *name, double rate, int priority, double move_time_input, double resolution_input);
-  void Task();
+  void Init(double _move_time_input, double _resolution_input);
+  bool Task(float _move_time, float _resolution, float _trans_vel, float _rot_vel, float &time_to_impact);
+  bool Task(float move_time, float resolution);
 
  private:
   double move_time, resolution;
@@ -46,9 +38,12 @@ class Collision: public PeriodicTask {
   nav_msgs::Odometry odom_msg;
   tf::Quaternion odom_quat;
   nav_msgs::OccupancyGrid costmap;
+  nav_msgs::OccupancyGrid myCostmap;
+
+  ros::Publisher costmap_pub;
   
-  bool propagateState(double move_time_input, double resolution_input);
-  bool costmapCheck();
+  bool propagateState(float _move_time, float _resolution, float _trans_vel, float _rot_vel, float &time_to_impact);
+  bool costmapCheck(float _x_pos, float _y_pos, float _theta_pos);
   void odomCallback(nav_msgs::Odometry msg);
   void costmapCallback(nav_msgs::OccupancyGrid msg);
 

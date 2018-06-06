@@ -10,6 +10,7 @@
 #include <iostream>
 
 Video::Video() : AperiodicTask() {
+  odom_sub = nh.subscribe("odom", 1, &Video::odomCallback, this);
 }
 
 int Video::Init(double duration_input, int video) {
@@ -20,13 +21,13 @@ int Video::Init(double duration_input, int video) {
 }
 
 void Video::Task() {
-  StateController::video_state = RECORDING;
+  StateController::vehicle_state = RECORDING_VIDEO;
   start();
 
   ros::Duration(duration).sleep();
 
   end();
-  StateController::video_state = NOT_RECORDING;
+  StateController::vehicle_state = IDLE;
 }
 
 void Video::start() {
@@ -40,6 +41,19 @@ void Video::start() {
 void Video::end() {
   int ret;
 
+  ros::spinOnce();
+
   ret = system("rosnode kill /camera_recorder");
   ret = system("rosnode kill /camera_node");
+
+  double time_now = ros::Time::now().toSec();
+
+  char message[200];
+  sprintf(message, "echo 'video %d: --- northing: %f, easting: %f, time: %f\n' >> /home/robot/catkin_ws/src/testing/videos/video_file.txt", video_number, northing, easting, time_now);
+  ret = system(message);
+}
+
+void Video::odomCallback(nav_msgs::Odometry msg) {
+  northing = msg.pose.pose.position.x;
+  easting = msg.pose.pose.position.y;
 }

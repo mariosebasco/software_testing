@@ -103,6 +103,7 @@ add_library(nav_lib
   nav_lib/collision.cpp
   nav_lib/video.cpp
   nav_lib/transform_gps.cpp
+  nav_lib/dwa.cpp
   )
 
 add_executable(state_controller

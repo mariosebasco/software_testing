@@ -89,7 +89,6 @@ int main(int argc, char *argv[]) {
     del_count1 = encoder1_count;
     del_count2 = encoder2_count;
 
-
     //wheel rotational velocity
     w1 = (del_count1*rad_to_tick)/(current_time - prev_time).toSec();
     w2 = (del_count2*rad_to_tick)/(current_time - prev_time).toSec();
@@ -113,9 +112,9 @@ int main(int argc, char *argv[]) {
     //car x, y velocity
     vx = cos(THETA)*v;
     vy = sin(THETA)*v;
-    // printf("theta: %f\n", THETA);
+    //printf("theta: %f\n", THETA*180.0/M_PI);
     // printf("vel_x: %f\n", vx);
-    // printf("vel_y: %f\n", vy);
+    //printf("vel_y: %f\n", vy);
     
     //car x, y position -- differential?
     x += vx*(current_time - prev_time).toSec();
@@ -150,8 +149,9 @@ int main(int argc, char *argv[]) {
 
     //set the velocity
     odom_data.child_frame_id = "chassis";
-    odom_data.twist.twist.linear.x = vx;
-    odom_data.twist.twist.linear.y = vy;
+    odom_data.twist.twist.linear.x = v;//vx;
+    odom_data.twist.twist.linear.y = 0.0;//vy;
+    odom_data.twist.twist.linear.z = 0.0;
     odom_data.twist.twist.angular.z = vtheta;
 
     odom_pub.publish(odom_data);

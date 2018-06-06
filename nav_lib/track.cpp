@@ -9,24 +9,24 @@
 
 #include "track.h"
 
-
 /***********************************************************************
  *                                                                     *
  *                      CONSTRUCTOR                                    *
  *                                                                     *
  *********************************************************************/
-TrackPoint::TrackPoint() : AperiodicTask() {
+TrackPoint::TrackPoint(Collision* _collisionObject) : AperiodicTask() {
   vel_pub = nh.advertise<geometry_msgs::Twist>("cmd_vel", 1);
   odom_sub = nh.subscribe("odom", 1, &TrackPoint::odom_callback, this);    
   should_start = false;
   goal_interrupt = false;
 
+  collisionObject = _collisionObject;
+  
   position_KP = 1.0;
   angle_KP = 1.0;
-  //turn_in_place_KP = 0.85;
+  turn_in_place_KP = 0.85;
 
-  // nh.getParam("/calibration_value", imu_drift);
-  // printf("calibration: %f\n", imu_drift);
+  COLLISION_DETECTED = false;
 }
 
 /***********************************************************************
@@ -34,9 +34,9 @@ TrackPoint::TrackPoint() : AperiodicTask() {
  *                      INITIALIZATION                                 *
  *                                                                     *
  *********************************************************************/
-int TrackPoint::Init() {//double northing_input, double easting_input) {
+int TrackPoint::Init() {
 
-  return AperiodicTask::Init((char *) "trackTask", 11);
+  return AperiodicTask::Init((char *) "trackTask", 40);
 }
 
 
@@ -52,7 +52,7 @@ void TrackPoint::Task() {
     updateOdom();
   }
   
-  float tracking_distance = 4.0; //how far down the path the point we are tracking is
+  float tracking_distance = 2.0; //how far down the path the point we are tracking is
   
   //import path file
   std::ifstream inFile;
@@ -61,27 +61,46 @@ void TrackPoint::Task() {
   double curvature, ang_vel, lin_vel;
   float angle_error;
   bool finished_turning_in_place = false;
+
+  float L, max_vel, sim_time, resolution;
+  
+  nh.getParam("/vehicle_width", L);
+  nh.getParam("/max_velocity", max_vel);
+  nh.getParam("/sim_time_collision", sim_time);
+  nh.getParam("/resolution", resolution);
     
   char *pEnd;
+  bool face_path = false;
   
   inFile.open("/home/robot/catkin_ws/src/testing/gps_files/path.txt");
   if (!inFile) {
     std::cout << "unable to open path file" << std::endl;
   }
 
-  //tell the state controller you are now tracking
-  StateController::tracker_state = TRACKING;
-
   std::getline(inFile, northing_1);
   std::getline(inFile, easting_1);
   des_northing = strtof(northing_1.c_str(), &pEnd);
   des_easting = strtof(easting_1.c_str(), &pEnd);
   
-  ros::Rate loop_rate(5);
+  ros::Rate loop_rate(10);
   
   while(!inFile.eof() && ros::ok()) {
     //update odometry
     updateOdom();
+
+    //if collision is detected let the local planner take over and wait for it to finish
+    if(collisionObject->Task(sim_time, resolution)) {
+      printf("collision detected\n");
+      GOAL_X = des_northing - odom_x;
+      GOAL_Y = des_easting - odom_y;
+      COLLISION_DETECTED = true;
+      publishSpeed(0.0, 0.0);
+      while(COLLISION_DETECTED) {
+	ros::Duration(1.0).sleep();
+      }
+      updateOdom();
+      face_path = true;
+    }
     
     //find the coods of the point in the path 'x' meters away from the vehicle
     point_dist = findPositionError(des_northing, des_easting);
@@ -95,163 +114,57 @@ void TrackPoint::Task() {
       point_dist = findPositionError(des_northing, des_easting);
     }
 
-    //angle_error = findAngleError(des_northing, des_easting);
+    angle_error = findAngleError(des_northing, des_easting);
 
     //if you are facing the wrong direction turn around
-    // if(abs(angle_error) > (M_PI / 2)) {
-    //   while(!finished_turning_in_place && !goal_interrupt && ros::ok()) {
+    if(abs(angle_error) > (M_PI / 2) || face_path) {
+      while(!finished_turning_in_place && !goal_interrupt && ros::ok()) {
 
-    // 	//adjust angular velocity and publish speed
-    // 	ang_vel = angle_error*turn_in_place_KP;
-    // 	publishSpeed(0.0, ang_vel);
+    	//adjust angular velocity and publish speed
+    	ang_vel = angle_error*turn_in_place_KP;
+    	publishSpeed(0.0, ang_vel);
 
-    // 	//update odometry
-    // 	updateOdom();
+    	//update odometry
+    	updateOdom();
 
-    // 	//update error
-    // 	angle_error = findAngleError(des_northing, des_easting);
+    	//update error
+    	angle_error = findAngleError(des_northing, des_easting);
 
-    // 	finished_turning_in_place = abs(angle_error*180/M_PI) < 8.0 ? true : false;
-    //   }
-    // }
+    	finished_turning_in_place = abs(angle_error*180/M_PI) < 8.0 ? true : false;
+      }
+    }
     
     //find the curvature given the point - 1/R = 2x/D^2
-    // float theta_curr = getYaw(odom_quat) + imu_drift;
-    // float easting_vehicle = (des_northing - odom_x)*sin(-theta_curr) + (des_easting - odom_y)*cos(-theta_curr);
-    // float curvature = 2*easting_vehicle/(point_dist*point_dist);
+    float theta_curr = getYaw(odom_quat);// + imu_drift;
+    float easting_vehicle = (des_northing - odom_x)*sin(-theta_curr) + (des_easting - odom_y)*cos(-theta_curr);
+    float curvature = 2*easting_vehicle/(point_dist*point_dist);
 
-    // printf("des northing: %f\n", des_northing);
-    // printf("des easting: %f\n", des_easting);
-    // ang_vel = curvature*angle_KP;
-    // lin_vel = 0.5;
-
-    //printf("ang_vel: %f\n", ang_vel);
+    //given curvature find velocities
+    float rad_curvature = 1/curvature;
+    if(rad_curvature >= 0.0) {
+      float v_left = max_vel/2.0;
+      ang_vel = v_left/(rad_curvature + L/2.0);
+      lin_vel = ang_vel*rad_curvature;
+    }
+    else {
+      float v_right = max_vel/2.0;
+      ang_vel = v_right/(rad_curvature - L/2.0);
+      lin_vel = ang_vel*rad_curvature;      
+    }
+        
+    publishSpeed(lin_vel, ang_vel);
     
-    // publishSpeed(lin_vel, ang_vel);
-
-    DWA(des_northing, des_easting);
+    finished_turning_in_place = false;
+    face_path = false;
     
-    //finished_turning_in_place = false;
     loop_rate.sleep();
   }
 
   //tell the state controller you are done tracking
-  printf("outside of while loop\n");
+  printf("outside of track loop\n");
   publishSpeed(0.0, 0.0);
-  StateController::tracker_state = NOT_TRACKING;
+  //StateController::vehicle_state = FINISHED;
   
-}
-
-/***********************************************************************
- *                                                                     *
- *                     DYNAMIC WINDOW APPROACH                         *
- *                                                                     *
- *********************************************************************/
-void TrackPoint::DWA(double des_northing, double des_easting) {
-  float cost, temp_cost;
-  float lin_vel, ang_vel, neg_ang_vel, optimal_lin_vel, optimal_ang_vel;
-  float alpha, beta;
-  float max_lin_vel = 0.5; // m/s
-  float max_ang_vel = 2.486; // rad/sec
-  int beta_max = 4;
-  int alpha_max = 10;
-
-  cost = 1000.0;
-  
-  for(int i = 1; i <= beta_max; i++) {
-    beta = i/float(beta_max);
-    for(int j = 0; j <= alpha_max; j++) {
-      alpha = j/float(alpha_max);
-      
-      lin_vel = beta*alpha*max_lin_vel;
-      ang_vel = beta*(1.0 - alpha)*max_ang_vel;
-      neg_ang_vel = -ang_vel;
-      
-      temp_cost = propagateState(des_northing, des_easting, lin_vel, ang_vel, 1.0);
-      if(temp_cost < cost) {
-  	cost = temp_cost;
-  	optimal_lin_vel = lin_vel;
-  	optimal_ang_vel = ang_vel;
-      }
-      temp_cost = propagateState(des_northing, des_easting, lin_vel, neg_ang_vel, 1.0);
-      if(temp_cost < cost) {
-  	cost = temp_cost;
-  	optimal_lin_vel = lin_vel;
-  	optimal_ang_vel = neg_ang_vel;
-      }
-    }
-  }
-
-  // printf("des_northing: %f\n", des_northing);
-  // printf("des_easting: %f\n", des_easting);
-
-  printf("lin_vel: %f\n", optimal_lin_vel);
-  printf("ang_vel: %f\n", optimal_ang_vel);
-  publishSpeed(position_KP*optimal_lin_vel, angle_KP*optimal_ang_vel);
-
-  // printf("position cost: %f\n", findPositionCost(des_northing, des_easting, odom_x, odom_y));
-  // printf("angle cost: %f\n", findAngleCost(des_northing, des_easting, odom_x, odom_y, 0.0));
-
-}
-
-
-/***********************************************************************
- *                                                                     *
- *                      PROPAGATE THE STATE                            *
- *                                                                     *
- ***********************************************************************/
-float TrackPoint::propagateState(double des_northing, double des_easting, float lin_vel, float ang_vel, float move_time) {
-  double curr_theta;
-  double vel_x, vel_y, vel_theta;
-  double next_x, next_y, next_theta;
-
-  double del_t = 0.25;
-
-  float position_cost, angle_cost, cost;
-    
-  //get data
-  curr_theta = getYaw(odom_quat);
-  curr_theta = curr_theta < 0 ? (2*M_PI + curr_theta) : curr_theta;
-
-  vel_x = lin_vel*cos(curr_theta);
-  vel_y = lin_vel*sin(curr_theta);
-  vel_theta = ang_vel;
-
-  //find the state
-  next_x = odom_x + vel_x*del_t;
-  next_y = odom_y + vel_y*del_t;
-  next_theta = curr_theta + vel_theta*del_t;
-  next_theta = wrapAngle(next_theta);
-  next_theta = next_theta < 0 ? (2*M_PI + next_theta) : next_theta;
-  vel_x = lin_vel*cos(next_theta);
-  vel_y = lin_vel*sin(next_theta);
-
-  int iterations = int(move_time / del_t); 
-  
-  for(int i = 1; i < iterations; i++) {
-    next_x = next_x + vel_x*del_t;
-    next_y = next_y + vel_y*del_t;
-    next_theta = next_theta + vel_theta*del_t;
-    next_theta = wrapAngle(next_theta);
-    next_theta = next_theta < 0 ? (2*M_PI + next_theta) : next_theta;
-    vel_x = lin_vel*cos(next_theta);
-    vel_y = lin_vel*sin(next_theta);
-  }
-
-
-  //the cost of that position is a function of distance to the point and facing the point
-  position_cost = findPositionCost(des_northing, des_easting, next_x, next_y);
-  angle_cost = findAngleCost(des_northing, des_easting, next_x, next_y, next_theta);
-  
-  // printf("position cost: %f\n", position_cost);
-  // printf("angle cost: %f\n", angle_cost);
-  
-  cost = position_cost + angle_cost;
-
-  // printf("lin vel: %f, ang vel: %f, cost: %f\n", lin_vel, ang_vel, cost);
-
-  
-  return cost;
 }
 
 
@@ -261,30 +174,28 @@ float TrackPoint::propagateState(double des_northing, double des_easting, float 
  *             TURN IN PLACE IF YOU KNOW DESIRED ANGLE                 *
  *                                                                     *
  *********************************************************************/
-void TrackPoint::turnInPlace(double theta_des) {
-  double theta_curr, angle_error, ang_vel;
-  bool finished_turning_in_place = false;
+// void TrackPoint::turnInPlace(double theta_des) {
+//   double theta_curr, angle_error, ang_vel;
+//   bool finished_turning_in_place = false;
 
-  while(!finished_turning_in_place && !goal_interrupt && ros::ok()) {
-    theta_curr = getYaw(odom_quat);
-    theta_curr = theta_curr < 0 ? (2*M_PI + theta_curr) : theta_curr;
+//   while(!finished_turning_in_place && !goal_interrupt && ros::ok()) {
+//     theta_curr = getYaw(odom_quat);
+//     theta_curr = theta_curr < 0 ? (2*M_PI + theta_curr) : theta_curr;
 
-    angle_error = theta_des - theta_curr;
-    angle_error = angle_error > M_PI ? (angle_error - 2*M_PI) : angle_error;
-    angle_error = angle_error < -M_PI ? (angle_error + 2*M_PI) : angle_error;
+//     angle_error = theta_des - theta_curr;
+//     angle_error = angle_error > M_PI ? (angle_error - 2*M_PI) : angle_error;
+//     angle_error = angle_error < -M_PI ? (angle_error + 2*M_PI) : angle_error;
 
-    //adjust angular velocity and publish speed
-    ang_vel = angle_error*turn_in_place_KP;
-    publishSpeed(0.0, ang_vel);
+//     //adjust angular velocity and publish speed
+//     ang_vel = angle_error*turn_in_place_KP;
+//     publishSpeed(0.0, ang_vel);
 
-    //update odometry
-    updateOdom();
+//     //update odometry
+//     updateOdom();
 
-    finished_turning_in_place = abs(angle_error*180/M_PI) < 5.0 ? true : false;
-  }
-
-
-}
+//     finished_turning_in_place = abs(angle_error*180/M_PI) < 5.0 ? true : false;
+//   }
+// }
 
 /***********************************************************************
  *                                                                     *
@@ -292,6 +203,7 @@ void TrackPoint::turnInPlace(double theta_des) {
  *                                                                     *
  *********************************************************************/
 void TrackPoint::odom_callback(nav_msgs::Odometry msg) {
+  //odom_msg = msg;
   should_start = true;
   odom_x = msg.pose.pose.position.x;
   odom_y = msg.pose.pose.position.y;
@@ -340,26 +252,6 @@ float TrackPoint::findAngleError(float x_des, float y_des) {
 }
 
 
-/***********************************************************************
- *                                                                     *
- *                      FIND ANGLE COST                               *
- *                                                                     *
- *********************************************************************/
-float TrackPoint::findAngleCost(double des_northing, double des_easting, double curr_x, double curr_y, double curr_theta) {
-  float theta_des, angle_cost, theta_curr;
-  theta_des = atan2((des_easting - curr_y), (des_northing - curr_x));
-  theta_des = theta_des < 0 ? (2*M_PI + theta_des) : theta_des;
-  // theta_curr = getYaw(odom_quat);
-  // theta_curr = theta_curr < 0 ? (2*M_PI + theta_curr) : theta_curr;
-
-  // printf("theta des: %f\n", theta_des);
-  // printf("theta current: %f\n", theta_curr);
-  angle_cost = theta_des - curr_theta;
-  angle_cost = angle_cost > M_PI ? (angle_cost - 2*M_PI) : angle_cost;
-  angle_cost = angle_cost < -M_PI ? (angle_cost + 2*M_PI) : angle_cost;
-
-  return fabs(angle_cost);
-}
 
 /***********************************************************************
  *                                                                     *
@@ -371,18 +263,6 @@ float TrackPoint::findPositionError(float x_des, float y_des) {
   position_error = sqrt(pow((odom_x - x_des),2) + pow((odom_y - y_des),2));
 
   return position_error;
-}
-
-/***********************************************************************
- *                                                                     *
- *                      FIND POSITION COST                            *
- *                                                                     *
- *********************************************************************/
-float TrackPoint::findPositionCost(double des_northing, double des_easting, double curr_x, double curr_y) {
-  float position_cost;
-  position_cost = sqrt(pow((des_northing - curr_x),2) + pow((des_easting - curr_y),2));
-
-  return position_cost;
 }
 
 
@@ -398,91 +278,3 @@ inline double TrackPoint::wrapAngle( double angle )
 }
 
 
-
-
-
-
-
-
-
-
-
-
-/***********************************************************************
- *                                                                     *
- *                      MAIN TRACKING FUNCTION                         *
- *                                                                     *
- *********************************************************************/
-// void TrackPoint::Task() {
-  
-//   bool finished = false;
-//   bool finished_turning_in_place = false;
-//   float position_error, angle_error, ang_vel, lin_vel, lin_vel1, lin_vel2;
-//   float position_error2, angle_error2;
-
-//   //calculate error
-//   angle_error = findAngleError(desired_poses[0].position.x, desired_poses[0].position.y);
-//   position_error = findPositionError(desired_poses[0].position.x, desired_poses[0].position.y);
-
-//   angle_error2 = findAngleError(desired_poses[1].position.x, desired_poses[1].position.y);
-//   position_error2 = findPositionError(desired_poses[1].position.x, desired_poses[1].position.y);
-  
-//   StateController::tracker_state = TRACKING;
-  
-//   //move accordingly
-//   //if you are facing opposite direction as target, turn to face it first
-//   if(abs(angle_error) > (M_PI / 2)) {
-//     while(!finished_turning_in_place && !goal_interrupt && ros::ok()) {
-
-//       //adjust angular velocity and publish speed
-//       ang_vel = angle_error*angle_KP;
-//       publishSpeed(0.0, ang_vel);
-
-//       //update odometry
-//       updateOdom();
-
-//       //update error
-//       angle_error = findAngleError(desired_poses[0].position.x, desired_poses[0].position.y);
-//       //printf("%f\n", angle_error);
-
-//       finished_turning_in_place = abs(angle_error*180/M_PI) < 5.0 ? true : false;
-//     }
-//   }
-
-//   //start moving towards target
-//   while(!finished && !goal_interrupt && ros::ok()) {
-
-//     //adjust velocities and publish speed
-//     ang_vel = 0.75*angle_error*angle_KP + 0.25*angle_error2*angle_KP;
-      
-//     lin_vel1 = position_error*position_;
-//     lin_vel2 = position_error2*position_KP;
-      
-//     lin_vel1 = lin_vel1 > 0.5 ? 0.5 : lin_vel1;
-//     lin_vel2 = lin_vel2 > 0.5 ? 0.5 : lin_vel2;
-      
-//     lin_vel = 0.75*lin_vel1 + 0.25*lin_vel2;
-//     //lin_vel = lin_vel - abs(ang_vel)*0.5;
-    
-//     publishSpeed(lin_vel, ang_vel);
-      
-//     //update odometry
-//     updateOdom();
-      
-//     //update error
-//     angle_error = findAngleError(desired_poses[0].position.x, desired_poses[0].position.y);
-//     position_error = findPositionError(desired_poses[0].position.x, desired_poses[0].position.y);
-
-//     angle_error2 = findAngleError(desired_poses[1].position.x, desired_poses[1].position.y);
-//     position_error2 = findPositionError(desired_poses[1].position.x, desired_poses[1].position.y);
-
-//     // printf("angle error: %f\n", angle_error);
-//     // printf("tracking x: %f\n", desired_poses[0].position.x);
-//     // printf("tracking y: %f\n", desired_poses[0].position.y);
-    
-//     //check if error is small enough to escape loop
-//     if(position_error <= 1.0) {finished = true;}
-//   }
-//   StateController::tracker_state = NOT_TRACKING;
-  
-// }

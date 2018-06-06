@@ -41,18 +41,18 @@
       </Pair>
     </StyleMap>
     <Placemark>
-      <name>path_CW</name>
+      <name>EW</name>
       <styleUrl>#poly-000000-1200-77-nodesc</styleUrl>
       <Polygon>
         <outerBoundaryIs>
           <LinearRing>
             <tessellate>1</tessellate>
             <coordinates>
-              -87.6975938,42.048718,0
-              -87.6976977,42.048717,0
-              -87.6976971,42.0485179,0
-              -87.6975837,42.0485179,0
-              -87.6975938,42.048718,0
+              -87.6975985,42.0487628,0
+              -87.6978962,42.0487599,0
+              -87.6978962,42.048712,0
+              -87.6975971,42.0487145,0
+              -87.6975985,42.0487628,0
             </coordinates>
           </LinearRing>
         </outerBoundaryIs>

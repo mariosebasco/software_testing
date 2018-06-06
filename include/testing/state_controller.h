@@ -22,18 +22,13 @@
 #include "track.h"
 #include "collision.h"
 #include "video.h"
-#include "transform_gps.h"
+#include "dwa.h"
 
-enum CollisionStates {CRASH, NO_CRASH};
-enum TrackerStates {TRACKING, NOT_TRACKING};
-enum VideoStates {RECORDING, NOT_RECORDING};
-
+enum VehicleState {IDLE, TRACKING_GLOBAL, TRACKING_LOCAL, RECORDING_VIDEO, FAULT, FINISHED};
 
 class StateController {
  public:
-  static CollisionStates collision_state;
-  static TrackerStates tracker_state;
-  static VideoStates video_state;
+  static VehicleState vehicle_state;
 
  private:
 };

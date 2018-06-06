@@ -32,7 +32,7 @@ def initialization():
     BLY = 442199.02           #bottom left 
     
     #mapFile = '/home/robot/catkin_ws/src/testing/images/back_alley.PNG'
-    mapFile = '/home/mariosebasco/catkin_ws/src/testing/images/parking_lot.png'
+    mapFile = '/home/robot/catkin_ws/src/testing/images/parking_lot.png'
     
     imgMap = 0
     #now plot the data on a graph
@@ -45,7 +45,7 @@ def initialization():
     implot = plt.imshow(imgMap,extent=[BLY, TRY, BLX, TRX])
 
     #read path
-    path_file = '/home/mariosebasco/catkin_ws/src/testing/gps_files/path.txt'
+    path_file = '/home/robot/catkin_ws/src/testing/gps_files/path.txt'
     file = open(path_file, 'r')
 
     #plot points on the map

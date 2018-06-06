@@ -1,0 +1,22 @@
+
+#dynamics parameters(m/s and m/s^2)
+max_velocity: 0.5
+max_acceleration: 0.5
+
+max_trans_acceleration: 0.5
+max_rot_acceleration: 0.5
+
+#dimensions (meters)
+vehicle_width: 0.4
+vehicle_length: 0.85
+wheel_radius: 0.085725
+
+#simulation parameters
+sim_time_dwa: 0.5
+sim_time_collision: 2.0
+resolution: 0.1
+
+#misc. parameters
+use_controller: true
+calibration_value: 0.0
+

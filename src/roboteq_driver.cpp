@@ -23,14 +23,15 @@ public:
 
   sensor_msgs::Joy controller_state;
   geometry_msgs::Twist cmd_vel;
-  int should_start, use_controller, RPM;
+  int RPM;
+  bool use_controller, should_start;
   int KP, KI;
 
-  RoboteqDriver(int rpm_input, int controller_input) {
+  RoboteqDriver(int rpm_input, bool controller_input) {
     encoder_pub = nh.advertise<testing::encoder_msg>("encoder_counts", 1);
     RPM = rpm_input;
     use_controller = controller_input;
-    should_start = 0;
+    should_start = false;
     KP = 5;
     KI = 20;
   }
@@ -162,7 +163,7 @@ public:
   //callback function for velocity data
   void velocityCb(geometry_msgs::Twist msg) {
     if(!use_controller) {
-      should_start = 1;
+      should_start = true;
     }
     cmd_vel = msg;
   }
@@ -170,7 +171,7 @@ public:
   //Callback function for controller data
   void controllerCb(sensor_msgs::Joy msg) {
     if(use_controller) {
-      should_start = 1;
+      should_start = true;
     }
 
     if(msg.buttons[0] || msg.buttons[1] || msg.buttons[2] || msg.buttons[3]) {
@@ -179,10 +180,10 @@ public:
 	std::cout<<"failed --> "<<status<<std::endl;
       }
     }
-    else if(msg.buttons[4]) {
+    else if(msg.buttons[4]) { //left bumper
       use_controller = 1;
     }
-    else if(msg.buttons[5]) {
+    else if(msg.buttons[5]) { //right bumper
       use_controller = 0;
     }
     else {
@@ -238,19 +239,25 @@ private:
 };
 
 
-/***********************************************************************
- ***********************************************************************
- *                               MAIN 
- ***********************************************************************
- ***********************************************************************
- */
-int main(int argc, char *argv[]) {
+/****************************************************************************************
+ *                                                                                      *
+ *                                                                                      *
+ *                                    MAIN                                              *
+ *                                                                                      *
+ *                                                                                      *
+ ***************************************************************************************/           int main(int argc, char *argv[]) {
 
   ros::init(argc, argv, "roboteq_node");
 
-  int use_controller, RPM;
-  ros::param::get("~use_controller", use_controller);
-  ros::param::get("~RPM", RPM);
+  bool use_controller;
+  int RPM;
+  float max_vel, wheel_radius, L;
+  ros::param::get("/use_controller", use_controller);
+  ros::param::get("/max_velocity", max_vel);
+  ros::param::get("/wheel_radius", wheel_radius);
+  ros::param::get("/vehicle_width", L);
+    
+  RPM = int(max_vel/wheel_radius*60/(2*M_PI));
   
   RoboteqDriver roboteq_object(RPM, use_controller);
   roboteq_object.roboteqInit();
@@ -260,8 +267,6 @@ int main(int argc, char *argv[]) {
   int batt_volts;
   float linear_gain = 1;
   float angular_gain = 0.75;
-  float wheel_radius = 0.085725; //meters
-  float L = 0.402336;
 
   batt_volts = roboteq_object.battVoltStatus();
   ROS_INFO("battery voltage: %f", float(batt_volts)/10.0);
@@ -270,8 +275,6 @@ int main(int argc, char *argv[]) {
   while(ros::ok()) {
 
     //get *relative* encoder readings
-    // encoder1_count = -(roboteq_object.readEncoder(1) - encoder1_init);
-    // encoder2_count = roboteq_object.readEncoder(2) - encoder2_init;
     encoder1_count = -roboteq_object.readEncoder(1);
     encoder2_count = roboteq_object.readEncoder(2);
     
@@ -303,8 +306,6 @@ int main(int argc, char *argv[]) {
 	vel_motor1 = vel_motor1 < -1000 ? -1000 : vel_motor1;
 	vel_motor2 = vel_motor2 < -1000 ? -1000 : vel_motor2;
 
-	//ROS_INFO("vel1: %d, vel2: %d", vel_motor1, vel_motor2);
-
 	//set velocities
 	roboteq_object.setVelocity(1,vel_motor1);
 	roboteq_object.setVelocity(2,vel_motor2);
@@ -312,17 +313,6 @@ int main(int argc, char *argv[]) {
     }
     batt_volts = roboteq_object.battVoltStatus();
 
-    //We want to make sure the robot stops moving if it stops receiving signals
-    roboteq_object.controller_state.axes.push_back(0.0);
-    roboteq_object.controller_state.axes.push_back(0.0);
-    roboteq_object.controller_state.axes.push_back(0.0);
-    roboteq_object.controller_state.axes.push_back(0.0);
-    roboteq_object.controller_state.axes.push_back(0.0);
-    roboteq_object.controller_state.axes.push_back(0.0);
-
-    // roboteq_object.cmd_vel.linear.x = 0.0;
-    // roboteq_object.cmd_vel.angular.z = 0.0;
-    
     ros::spinOnce();
     loop_rate.sleep();
 

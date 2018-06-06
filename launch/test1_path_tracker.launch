@@ -1,11 +1,12 @@
 
 <launch>
 
-  <arg name="use_controller" default="0" />
-  <arg name="RPM" default="56" />
+  <!-- <arg name="use_controller" default="0" /> -->
+  <!-- <arg name="RPM" default="56" /> -->
   <!-- <arg name="should_calibrate" default="false" /> -->
+  <!-- <param name="calibration_value" type="double" value="0.0"/> -->
 
-  <param name="calibration_value" type="double" value="0.0"/>
+  <rosparam file="$(find testing)/params/params.yaml" command="load" />
   
   <!-- form path-->
   <node name="convert_gps" pkg="testing" type="convert_gps"/>
@@ -20,10 +21,7 @@
   <node name="imu" pkg="testing" type="imu" />
 
   <!-- main driver -->
-  <node name="ugv_control" pkg="testing" type="ugv_control" output="screen">
-    <param name="use_controller" value="$(arg use_controller)"/>
-    <param name="RPM" value="$(arg RPM)"/>
-  </node>
+  <node name="ugv_control" pkg="testing" type="ugv_control" output="screen"/>
 
   <!-- Publishes odometry data from encoder counts-->
   <node name="encoder_to_odom" pkg="testing" type="encoder_to_odom" output="screen"/>
@@ -43,5 +41,5 @@
   
   <!-- add some extra tf frames -->
   <remap from="tf" to="tf_local" />
-  <node name="tf_publisher" pkg="testing" type="tf_publisher"/> 
+  <node name="tf_publisher" pkg="testing" type="tf_publisher"/>
 </launch>
