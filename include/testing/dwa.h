@@ -43,20 +43,23 @@ class DWA : public AperiodicTask {
   nav_msgs::Odometry odom_msg;
   tf::Quaternion odom_quat;
 
-  float max_trans_vel;
-  float max_rot_vel;
-  float max_trans_acceleration;
-  float max_rot_acceleration;
-
+  float MAX_TRANS_VEL;
+  float MAX_ROT_VEL;
+  float MAX_TRANS_ACCELERATION;
+  float MAX_ROT_ACCELERATION;
+  float SIM_TIME;
+  float RESOLUTION;
+  
   Collision *collisionObject;
   
-  std::vector<VelocityStruct> FindDynamicWindow(VelocityStruct _velocity_struct, float _sim_time, float _resolution);
-  float FindOrientationCost(VelocityStruct velocity_struct, float goal_x, float goal_y, float sim_time);
-  float FindObstacleCost(VelocityStruct _velocity_struct, float _resolution);
+  //std::vector<VelocityStruct> FindDynamicWindow(VelocityStruct _velocity_struct, float _sim_time, float _resolution);
+  float FindOrientationCost(VelocityStruct _velocity_struct, float _goal_x, float _goal_y, float &dist_to_goal);
+  float FindObstacleCost(VelocityStruct _velocity_struct);
   float FindVelocityCost(VelocityStruct _velocity_struct);
   bool ReachedGoal(float _goal_x, float _goal_y);
   void OdomCallback(nav_msgs::Odometry msg);
   void PublishVel(float trans_vel, float rot_vel);
+  //void TurnInPlace();
 };
 
 #endif

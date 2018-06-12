@@ -21,6 +21,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
   FILES
   encoder_msg.msg
+  EsrTrack.msg
   )
 
 generate_messages(
@@ -134,3 +135,12 @@ target_link_libraries(calibration_test
   nav_lib
   )
 
+
+#add exec for radar
+# add_executable(radar_exec
+#   src/radar.cpp
+#   )
+
+# target_link_libraries(radar_exec
+#   ${catkin_LIBRARIES}
+#   )

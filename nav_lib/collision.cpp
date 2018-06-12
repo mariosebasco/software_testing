@@ -22,6 +22,11 @@ Collision::Collision() {//: PeriodicTask() {
   costmap_sub = nh.subscribe("costmap_node/costmap/costmap", 1, &Collision::costmapCallback, this);
 
   costmap_pub = nh.advertise<nav_msgs::OccupancyGrid>("my_costmap", 1);
+
+  //nh.getParam("/vehicle_width", vehicle_width);
+  //nh.getParam("/vehicle_length", vehicle_length);
+  VEHICLE_WIDTH = 0.4;
+  VEHICLE_LENGTH = 0.85;
 }
 
 
@@ -34,8 +39,8 @@ bool Collision::Task(float _move_time, float _resolution, float _trans_vel, floa
   float move_time, resolution, trans_vel, rot_vel;
   bool collision;
 
-  while(!received_map && received_odom) {
-    ros::spinOnce();
+  while(!received_map && !received_odom) {
+    UpdateCallbacks();
   }
 
   move_time = _move_time;
@@ -46,6 +51,7 @@ bool Collision::Task(float _move_time, float _resolution, float _trans_vel, floa
   //propagate the state forward for del_t to obtain new state
   collision = propagateState(move_time, resolution, trans_vel, rot_vel, time_to_impact);
   costmap_pub.publish(myCostmap);
+
   if(collision) return true;
   return false;
 
@@ -61,10 +67,6 @@ bool Collision::Task(float _move_time, float _resolution) {
   float move_time, resolution, trans_vel, rot_vel;
   bool collision;
   
-  while(!received_map && !received_odom) {
-    ros::spinOnce();
-  }
-
   move_time = _move_time;
   resolution = _resolution;
   trans_vel = odom_msg.twist.twist.linear.x;
@@ -73,7 +75,7 @@ bool Collision::Task(float _move_time, float _resolution) {
   
   //propagate the state forward for del_t to obtain new state
   collision = propagateState(move_time, resolution, trans_vel, rot_vel, time_to_impact);
-  costmap_pub.publish(myCostmap);
+
   if(collision) return true;
   return false;
 }
@@ -105,26 +107,52 @@ bool Collision::propagateState(float _move_time, float _resolution, float _trans
   curr_y = odom_msg.pose.pose.position.y;
   curr_theta = getYaw(odom_quat);
   curr_theta = curr_theta < 0 ? (2*M_PI + curr_theta) : curr_theta;
-  
-  //the radius of the circle we are moving along is
-  float radius = trans_vel / rot_vel;
-  float circle_x = curr_x - radius*sin(-curr_theta);
-  float circle_y = curr_y + radius*cos(-curr_theta);
 
   int iterations = int(move_time / resolution); 
   
-  for(int i = 1; i <= iterations; i++) {
-    next_theta = curr_theta + rot_vel*i*resolution;
-    next_x = circle_x + radius*sin(-next_theta);
-    next_y = circle_y + radius*cos(-next_theta);
-        
-    collision = costmapCheck(next_x, next_y, next_theta);
+  //propagate the state
+  if(rot_vel == 0.0) {
+    next_theta = curr_theta;
+    for(int i = 1; i <= iterations; i++) {
+      next_x = curr_x + trans_vel*cos(curr_theta)*i*resolution;
+      next_y = curr_y + trans_vel*sin(curr_theta)*i*resolution;
+
+      collision = costmapCheck(next_x, next_y, next_theta);
       if(collision) {
-	time_to_impact = i*resolution + resolution;
-	ROS_INFO("collision detected in %f seconds", time_to_impact);
-	return true;
+  	time_to_impact = i*resolution;
+  	//ROS_INFO("collision detected in %f seconds", time_to_impact);
+  	return true;
       }
+    }
   }
+  else {
+    float radius = trans_vel / rot_vel;
+    float circle_x = curr_x - radius*sin(curr_theta);
+    float circle_y = curr_y + radius*cos(curr_theta);
+  
+    for(int i = 1; i <= iterations; i++) {
+      next_theta = curr_theta + rot_vel*i*resolution;
+      next_x = circle_x + radius*sin(next_theta);
+      next_y = circle_y - radius*cos(next_theta);
+
+      // printf("radius: %f\n", radius);
+      // printf("circle x: %f\n", circle_x);
+      // printf("circle y: %f\n\n", circle_y);
+
+      // printf("next theta: %f\n", next_theta);
+      // printf("next x: %f\n", next_x);
+      // printf("next y: %f\n", next_y);
+      // std::cout << "********************" << std::endl << std::endl;
+      
+      collision = costmapCheck(next_x, next_y, next_theta);
+      if(collision) {
+  	time_to_impact = i*resolution;
+  	//ROS_INFO("collision detected in %f seconds", time_to_impact);
+  	return true;
+      }
+    }
+  }
+  
   return false;
 }
 
@@ -143,21 +171,18 @@ bool Collision::costmapCheck(float _x_pos, float _y_pos, float _theta_pos) {
 
   int grid_cell, grid_cell_y, grid_cell_x,  cell_value, map_height;
   double origin_x, origin_y;
-  float map_resolution, vehicle_width, vehicle_length, x_pos, y_pos, theta_pos, time_to_impact;
+  float map_resolution, x_pos, y_pos, theta_pos, time_to_impact;
   origin_x = costmap.info.origin.position.x;
   origin_y = costmap.info.origin.position.y;
   map_resolution = costmap.info.resolution;
   map_height = costmap.info.height;
   
-  nh.getParam("/vehicle_width", vehicle_width);
-  nh.getParam("/vehicle_length", vehicle_length);
-  
   x_pos = _x_pos;
   y_pos = _y_pos;
   theta_pos = _theta_pos;
-    
-  std::vector<double> x_points(int(ceil(vehicle_width/0.05)) + 1, vehicle_length/2.0);
-  std::vector<double> y_points(int(ceil(vehicle_width/0.05)) + 1, -vehicle_width/2.0);
+
+  std::vector<double> x_points(int(ceil(VEHICLE_WIDTH/0.05)) + 1, VEHICLE_LENGTH/2.0);
+  std::vector<double> y_points(int(ceil(VEHICLE_WIDTH/0.05)) + 1, -VEHICLE_WIDTH/2.0);
   int vector_length = x_points.size();
 
   std::vector<double> x_points_glob(vector_length, 0.0);
@@ -179,6 +204,7 @@ bool Collision::costmapCheck(float _x_pos, float _y_pos, float _theta_pos) {
     grid_cell_y = int(fabs(origin_y + y_points_glob[i])/map_resolution)*map_height;
     grid_cell_x = int(fabs(origin_x - x_points_glob[i])/map_resolution); 
     grid_cell= grid_cell_y + grid_cell_x;
+    //std::cout << "grid cell " << grid_cell << std::endl;
 
     cell_value = costmap.data[grid_cell];
     myCostmap.data[grid_cell] = 100;
@@ -214,6 +240,16 @@ void Collision::costmapCallback(nav_msgs::OccupancyGrid msg) {
   costmap = msg;
   myCostmap = msg;
 }
+
+/***********************************************************************
+ *                                                                     *
+ *                  UPDATE CALLBACK FUNCTIONS                          *
+ *                                                                     *
+ *********************************************************************/
+void Collision::UpdateCallbacks() {
+  ros::spinOnce();
+}
+
 
 /***********************************************************************
  *                                                                     *

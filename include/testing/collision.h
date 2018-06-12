@@ -29,9 +29,10 @@ class Collision {
   void Init(double _move_time_input, double _resolution_input);
   bool Task(float _move_time, float _resolution, float _trans_vel, float _rot_vel, float &time_to_impact);
   bool Task(float move_time, float resolution);
+  void UpdateCallbacks();
 
  private:
-  double move_time, resolution;
+  float VEHICLE_WIDTH, VEHICLE_LENGTH;
   ros::NodeHandle nh;
   ros::Subscriber odom_sub;
   ros::Subscriber costmap_sub;
@@ -46,7 +47,7 @@ class Collision {
   bool costmapCheck(float _x_pos, float _y_pos, float _theta_pos);
   void odomCallback(nav_msgs::Odometry msg);
   void costmapCallback(nav_msgs::OccupancyGrid msg);
-
+  
   inline double wrapAngle(double angle);
 };
 

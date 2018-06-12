@@ -17,6 +17,8 @@
 
 #include "sensor_msgs/Imu.h"
 
+#include "testing/EsrTrack.h"
+
 int encoder1_count, encoder2_count;
 double THETA = 0.0;
 bool start_imu = false;

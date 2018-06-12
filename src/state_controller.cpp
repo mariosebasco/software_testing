@@ -30,53 +30,57 @@ int main(int argc, char **argv) {
   
   bool will_collide;
   int ret;
-      
+
+  // dwaObject->GOAL_X = 1.0;
+  // dwaObject->GOAL_Y = 0.0;
+  dwaObject->Init();
+  
   ros::Rate loop_rate(10);
+  while(ros::ok()) {loop_rate.sleep();}
+  // while(ros::ok()) {
 
-  while(ros::ok()) {
-
-    switch(StateController::vehicle_state) {
-    case IDLE:
-      StateController::vehicle_state = TRACKING_GLOBAL;
-      ret = trackPointObject->Init();
-      break;
+  //   switch(StateController::vehicle_state) {
+  //   case IDLE:
+  //     StateController::vehicle_state = TRACKING_GLOBAL;
+  //     ret = trackPointObject->Init();
+  //     break;
       
-    case TRACKING_GLOBAL:
-      if(trackPointObject->COLLISION_DETECTED) {
-	StateController::vehicle_state = TRACKING_LOCAL;
- 	dwaObject->GOAL_X = trackPointObject->GOAL_X;
- 	dwaObject->GOAL_Y = trackPointObject->GOAL_Y;
-	dwaObject->Init();
-      }
-      printf("tracking global path\n");
-      break;
+  //   case TRACKING_GLOBAL:
+  //     if(trackPointObject->COLLISION_DETECTED) {
+  // 	StateController::vehicle_state = TRACKING_LOCAL;
+  // 	dwaObject->GOAL_X = trackPointObject->GOAL_X;
+  // 	dwaObject->GOAL_Y = trackPointObject->GOAL_Y;
+  // 	dwaObject->Init();
+  //     }
+  //     printf("tracking global path\n");
+  //     break;
       
-    case TRACKING_LOCAL:
-      if(dwaObject->REACHED_GOAL) {
-	StateController::vehicle_state = TRACKING_GLOBAL;
-	trackPointObject->COLLISION_DETECTED = false;
-      }
-      printf("tracking global path\n");
-      break;
+  //   case TRACKING_LOCAL:
+  //     if(dwaObject->REACHED_GOAL) {
+  // 	StateController::vehicle_state = TRACKING_GLOBAL;
+  // 	trackPointObject->COLLISION_DETECTED = false;
+  //     }
+  //     printf("tracking global path\n");
+  //     break;
       
-    case RECORDING_VIDEO:
-      printf("taking video\n");
-      break;
+  //   case RECORDING_VIDEO:
+  //     printf("taking video\n");
+  //     break;
       
-    case FAULT:
-      printf("fault state\n");
-      break;
+  //   case FAULT:
+  //     printf("fault state\n");
+  //     break;
       
-    case FINISHED:
-      printf("finished everything\n");
-      break;
+  //   case FINISHED:
+  //     printf("finished everything\n");
+  //     break;
       
-    default:
-      break;
-    }
+  //   default:
+  //     break;
+  //   }
       
-    loop_rate.sleep();
-  }
+  //   loop_rate.sleep();
+  // }
   
   //take a video for 10 seconds
   // videoObject->Init(10, 2);
@@ -89,6 +93,7 @@ int main(int argc, char **argv) {
 
   std::cout << "EXITING" << std::endl;
   delete trackPointObject;
+  delete dwaObject;
   delete collisionObject;
   delete videoObject;
   
