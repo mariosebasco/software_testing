@@ -18,11 +18,11 @@ DWA::DWA(Collision* _collisionObject) : AperiodicTask() {
     
   received_odom = false;
   REACHED_GOAL = false;
-  GOAL_X = 4.0;
+  GOAL_X = 6.0;
   GOAL_Y = 0.0;
 
   MAX_TRANS_VEL = 0.40; //0.25m/s for testing
-  MAX_ROT_VEL = M_PI/4.0;
+  MAX_ROT_VEL = 40.0*M_PI / 180.0;//M_PI/4.0;
   MAX_TRANS_ACCELERATION = 0.5;
   MAX_ROT_ACCELERATION = 1.57;
   SIM_TIME = 3.0;
@@ -51,22 +51,18 @@ void DWA::Task() {
   float optimal_trans_vel, optimal_rot_vel;
   float max_path_cost = 0.0;
 
-  alpha = 0.6;
-  beta = 0.5;
-  gamma = 0.3;
-  zeta = 0.8;
+  alpha = 0.8; //orientation
+  beta = 0.8; //obstacle
+  gamma = 0.3; //velocity
+  zeta = 0.3; //distance
   
   VelocityStruct velocity_struct;
   float opt_obstacle, opt_orientation, opt_vel, opt_distance, dist_to_goal;
+  int backup_count = 0;
   
   //ros::Rate loop_rate(10.0);
     
   while(ros::ok()) {
-    float curr_x = odom_msg.pose.pose.position.x;
-    float curr_y = odom_msg.pose.pose.position.y;
-    float curr_dist_to_goal = sqrt(pow((curr_x - GOAL_X), 2) + pow((curr_y - GOAL_Y), 2));
-    //std::cout << curr_dist_to_goal << std::endl;
-    
     
     //find the set of possible velocities (Dynamic Window)
     float curr_vel = odom_msg.twist.twist.linear.x;
@@ -77,18 +73,21 @@ void DWA::Task() {
     float rot_lower_limit = curr_rot_vel - MAX_ROT_ACCELERATION*SIM_TIME;
   
     if(vel_upper_limit > MAX_TRANS_VEL) vel_upper_limit = MAX_TRANS_VEL;
-    if(vel_lower_limit < 0.0) vel_lower_limit = 0.0;
+    if(vel_lower_limit < 0.1) vel_lower_limit = 0.1;
     if(rot_upper_limit > MAX_ROT_VEL) rot_upper_limit = MAX_ROT_VEL;
     if(rot_lower_limit < -MAX_ROT_VEL) rot_lower_limit = -MAX_ROT_VEL;
 
-    vel_lower_limit = 0.1;
+    float curr_x = odom_msg.pose.pose.position.x;
+    float curr_y = odom_msg.pose.pose.position.y;
+    float curr_dist_to_goal = sqrt(pow((curr_x - GOAL_X), 2) + pow((curr_y - GOAL_Y), 2));
+    
+    //vel_lower_limit = 0.1;
     
     float num_trans_iterations = int((vel_upper_limit - vel_lower_limit)/RESOLUTION);
     float num_rot_iterations = int((rot_upper_limit - rot_lower_limit)/RESOLUTION);
 
     float temp_trans_vel = 0.0;
     float temp_rot_vel = 0.0;
-
 
     /* ********************************************************************* */
     // temp_trans_vel = 0.3;
@@ -100,38 +99,48 @@ void DWA::Task() {
 
     /* ********************************************************************* */
 
+    float temp_rot_upper = rot_upper_limit; 
+    float temp_rot_lower = -temp_rot_upper;
 
     //update odom and costmap for the collision class
     collisionObject->UpdateCallbacks();
     
     for(int i = 0; i <= num_trans_iterations; i++) {
+      temp_trans_vel = vel_lower_limit + i*RESOLUTION;
+      
       for(int j = 0; j <= num_rot_iterations; j++) {
 
-    	temp_trans_vel = vel_lower_limit + i*RESOLUTION;
-    	temp_rot_vel = rot_lower_limit + j*RESOLUTION;
+    	temp_rot_vel = temp_rot_lower + j*((temp_rot_upper - temp_rot_lower)/num_rot_iterations);
     	velocity_struct.trans_vel = temp_trans_vel;
     	velocity_struct.rot_vel = temp_rot_vel;
 
     	obstacle_cost = FindObstacleCost(velocity_struct);
-    	//if(obstacle_cost == 0.0) {break;}
+    	if(obstacle_cost == 0.0) {continue;}
     	orientation_cost = FindOrientationCost(velocity_struct, GOAL_X, GOAL_Y, dist_to_goal);
-    	distance_cost = (curr_dist_to_goal - dist_to_goal) / curr_dist_to_goal;
+	if(orientation_cost == 0.0) {continue;}
     	velocity_cost = FindVelocityCost(velocity_struct);
+	if(dist_to_goal > curr_dist_to_goal) distance_cost = 0.0;
+	else distance_cost = (curr_dist_to_goal - dist_to_goal);
 	  
     	path_cost = alpha*orientation_cost + beta*obstacle_cost + gamma*velocity_cost + zeta*distance_cost;
 
-	printf("lin vel: %f\n", temp_trans_vel);
-	printf("rot vel: %f\n", temp_rot_vel);
+	//**********************************************************************
+	
+	// printf("lin vel: %f\n", temp_trans_vel);
+	// printf("rot vel: %f\n", temp_rot_vel);
 	  
-	printf("orientation cost: %f\n", orientation_cost);
-	printf("obstable cost: %f\n", obstacle_cost);
-	printf("velocity cost: %f\n", velocity_cost);
-	printf("distance cost: %f\n", distance_cost);
-	std::cout << "****************************" <<std::endl << std::endl;
+	// printf("orientation cost: %f\n", orientation_cost);
+	// printf("obstable cost: %f\n", obstacle_cost);
+	// printf("velocity cost: %f\n", velocity_cost);
+	// printf("distance cost: %f\n", distance_cost);
+	// printf("total cost: %f\n", path_cost);
+	// std::cout << "****************************" <<std::endl << std::endl;
 
-	char myChar;
-	std::cin >> myChar;
-	collisionObject->UpdateCallbacks();
+	// char myChar;
+	// std::cin >> myChar;
+	// collisionObject->UpdateCallbacks();
+	
+	//**********************************************************************
 	
     	//update optimal velocity
     	if(path_cost > max_path_cost) {
@@ -148,11 +157,40 @@ void DWA::Task() {
     }
 
     PublishVel(optimal_trans_vel, optimal_rot_vel);
-    std::cout << "****************************" <<std::endl << std::endl;
-    std::cout << "****************************" <<std::endl << std::endl;
+    std::cout << "****************************" <<std::endl;
+    std::cout << "****************************" <<std::endl;
+    std::cout << "************MAX VALUES******" <<std::endl;
+
+    printf("opt vel: %f\n", optimal_trans_vel);
+    printf("opt rot: %f\n", optimal_rot_vel);
+    
+    printf("orientation cost: %f\n", opt_orientation);
+    printf("obstable cost: %f\n", opt_obstacle);
+    printf("velocity cost: %f\n", opt_vel);
+    printf("distance cost: %f\n", opt_distance);
+    
+    std::cout << "****************************" <<std::endl;
     std::cout << "****************************" <<std::endl << std::endl;
 
+    //if max velocities are zero then you did not find any possible paths -- back up
+    // if(optimal_trans_vel == 0.0) {
+    //   if(backup_count == 1) {
+    // 	printf("NO PATHS FOUND\n");
+    // 	break;
+    //   }
+    //   PublishVel(-0.25, 0.0);
+    //   ros::Duration(2.0).sleep();
+    //   PublishVel(0.0, 45.0*M_PI/180.0);
+    //   ros::Duration(1.0).sleep();
+    //   PublishVel(0.0, 0.0);
+    //   ros::Duration(2.0).sleep();
+    //   backup_count += 1;
+    // }
+    // else backup_count = 0;
+
     max_path_cost = 0.0;
+    optimal_trans_vel = 0.0;
+    optimal_rot_vel = 0.0;
     
     if(ReachedGoal(GOAL_X, GOAL_Y)) {
       PublishVel(0.0, 0.0);
@@ -196,14 +234,14 @@ float DWA::FindOrientationCost(VelocityStruct _velocity_struct, float _goal_x, f
   }
   else {
     radius = velocity_struct.trans_vel/velocity_struct.rot_vel;
-    circle_x = curr_x - radius*sin(-curr_theta);
-    circle_y = curr_y + radius*cos(-curr_theta);
+    circle_x = curr_x - radius*sin(curr_theta);
+    circle_y = curr_y + radius*cos(curr_theta);
 
     next_theta = curr_theta + velocity_struct.rot_vel*SIM_TIME;
     next_x = circle_x + radius*sin(next_theta);
     next_y = circle_y - radius*cos(next_theta);
   }
-
+  
   dist_to_goal = sqrt(pow((next_x - goal_x), 2) + pow((next_y - goal_y), 2));
   
   next_theta = next_theta > 2*M_PI ? (next_theta - 2*M_PI) : next_theta;
@@ -244,23 +282,25 @@ float DWA::FindObstacleCost(VelocityStruct _velocity_struct) {
 
   velocity_struct = _velocity_struct;
 
-  if(velocity_struct.trans_vel = 0.0) {
+  if(velocity_struct.trans_vel == 0.0) {
+  //if(true) {
     sim_time = 10.0;
     resolution = 1.0;
   }
   else {
-    float dist_forward = 5.0;
+    float dist_forward = 3.0;
     sim_time = dist_forward/velocity_struct.trans_vel;
+    if(sim_time > 20.0) sim_time = 20;
     resolution = sim_time / (dist_forward*4.0); //check collision 4 times every meter
   }
 
   
   collision = collisionObject->Task(sim_time, resolution, velocity_struct.trans_vel, velocity_struct.rot_vel, time_to_impact);
   if(!collision) return 1.0;
-
-  //printf("time to impact %f\n", time_to_impact);
-  
-  if(time_to_impact <= SIM_TIME) return 0.0;
+  // printf("sim_time: %f\n", sim_time);
+  // printf("resolution: %f\n", resolution);
+  // printf("time: %f\n", time_to_impact);
+  if((time_to_impact <= SIM_TIME)) return 0.0;
   else cost = time_to_impact / sim_time;
 
   return cost;
