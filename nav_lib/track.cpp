@@ -16,9 +16,8 @@
  *********************************************************************/
 TrackPoint::TrackPoint(Collision* _collisionObject) : AperiodicTask() {
   vel_pub = nh.advertise<geometry_msgs::Twist>("cmd_vel", 1);
-  odom_sub = nh.subscribe("odom", 1, &TrackPoint::odom_callback, this);    
+  odom_sub = nh.subscribe("odom", 1, &TrackPoint::OdomCallback, this);    
   should_start = false;
-  goal_interrupt = false;
 
   collisionObject = _collisionObject;
   
@@ -49,86 +48,131 @@ void TrackPoint::Task() {
 
   //wait for odom data before starting this function
   while(!should_start) {
-    updateOdom();
+    UpdateOdom();
   }
   
   float tracking_distance = 2.0; //how far down the path the point we are tracking is
   
   //import path file
-  std::ifstream inFile;
-  std::string northing_1, easting_1;
+  std::ifstream inFile, velFile;
+  std::string str_northing, str_easting, str_vel;
   double des_northing, des_easting, point_dist;
   double curvature, ang_vel, lin_vel;
   float angle_error;
   bool finished_turning_in_place = false;
 
   float L, max_vel, sim_time, resolution;
+
+  L = 0.4; //meters
+  max_vel = 0.5; //m/s
+  sim_time = 3; //seconds
+  resolution = 0.25; //seconds
+
+  int array_size = 10;
+  int iterator_count = 0;
+  double northing_array[array_size];
+  double easting_array[array_size];
+  float vel_array[array_size];
+  float curr_max_vel = 0.5;
   
-  nh.getParam("/vehicle_width", L);
-  nh.getParam("/max_velocity", max_vel);
-  nh.getParam("/sim_time_collision", sim_time);
-  nh.getParam("/resolution", resolution);
-    
+  // nh.getParam("/vehicle_width", L);
+  // nh.getParam("/max_velocity", max_vel);
+  // nh.getParam("/sim_time_collision", sim_time);
+  // nh.getParam("/resolution", resolution);
+
   char *pEnd;
-  bool face_path = false;
   
   inFile.open("/home/robot/catkin_ws/src/testing/gps_files/path.txt");
   if (!inFile) {
     std::cout << "unable to open path file" << std::endl;
   }
 
-  std::getline(inFile, northing_1);
-  std::getline(inFile, easting_1);
-  des_northing = strtof(northing_1.c_str(), &pEnd);
-  des_easting = strtof(easting_1.c_str(), &pEnd);
+  velFile.open("/home/robot/catkin_ws/src/testing/gps_files/vel.txt");
+  if (!velFile) {
+    std::cout << "unable to open path file" << std::endl;
+  }
+
+  //Initialize a list of the first ten path points and velocities
+  for(int i = 0; i < array_size; i++) {
+    std::getline(inFile, str_northing);
+    std::getline(inFile, str_easting);
+    std::getline(velFile, str_vel);
+    northing_array[i] = strtof(str_northing.c_str(), &pEnd);
+    easting_array[i] = strtof(str_easting.c_str(), &pEnd);
+    vel_array[i] = strtof(str_vel.c_str(), &pEnd);
+  }
+  des_northing = northing_array[0];
+  des_easting = easting_array[0];
   
   ros::Rate loop_rate(10);
   
-  while(!inFile.eof() && ros::ok()) {
+  while((iterator_count != array_size) && ros::ok()) {
     //update odometry
-    updateOdom();
+    UpdateOdom();
 
     //if collision is detected let the local planner take over and wait for it to finish
     if(collisionObject->Task(sim_time, resolution)) {
       printf("collision detected\n");
       GOAL_X = des_northing - odom_x;
       GOAL_Y = des_easting - odom_y;
+      ORIENTATION = getYaw(odom_quat);
+
       COLLISION_DETECTED = true;
-      publishSpeed(0.0, 0.0);
+      PublishSpeed(0.0, 0.0);
       while(COLLISION_DETECTED) {
 	ros::Duration(1.0).sleep();
       }
-      updateOdom();
-      face_path = true;
+      UpdateOdom();
+    }
+
+    //update tracking distance based on current velocity
+    tracking_distance = FindLookAheadDistance();
+    point_dist = FindPositionError(des_northing, des_easting);
+      
+    while(point_dist < tracking_distance) {
+      iterator_count += 1;
+      if(iterator_count == array_size) break;
+      des_northing = northing_array[iterator_count];
+      des_easting = easting_array[iterator_count];
+      curr_max_vel = vel_array[iterator_count];
+      point_dist = FindPositionError(des_northing, des_easting);
     }
     
-    //find the coods of the point in the path 'x' meters away from the vehicle
-    point_dist = findPositionError(des_northing, des_easting);
-  
-    while(point_dist < tracking_distance) {
-      std::getline(inFile, northing_1);
+    //update the vector of points and allowable velocities
+    while(FindPositionError(northing_array[array_size - 1], easting_array[array_size - 1]) < (tracking_distance + tracking_distance/2.0)) {
+      std::getline(inFile, str_northing);
       if(inFile.eof()) {break;}
-      std::getline(inFile, easting_1);
-      des_northing = strtof(northing_1.c_str(), &pEnd);
-      des_easting = strtof(easting_1.c_str(), &pEnd);
-      point_dist = findPositionError(des_northing, des_easting);
-    }
+      std::getline(inFile, str_easting);
+      std::getline(velFile, str_vel);
 
-    angle_error = findAngleError(des_northing, des_easting);
+      for(int i = 0; i < (array_size - 1); i++) {
+	northing_array[i] = northing_array[i + 1];
+	easting_array[i] = easting_array[i + 1];
+	vel_array[i] = vel_array[i + 1];
+      }
+      
+      northing_array[array_size - 1] = strtof(str_northing.c_str(), &pEnd);
+      easting_array[array_size - 1] = strtof(str_easting.c_str(), &pEnd);
+      vel_array[array_size - 1] = strtof(str_vel.c_str(), &pEnd);
+      iterator_count -= 1;
+    }
+    
+
+    angle_error = FindAngleError(des_northing, des_easting);
 
     //if you are facing the wrong direction turn around
-    if(abs(angle_error) > (M_PI / 2) || face_path) {
-      while(!finished_turning_in_place && !goal_interrupt && ros::ok()) {
+    if(abs(angle_error) > (70.0*M_PI/180.0)) {
+      while(!finished_turning_in_place && ros::ok()) {
 
     	//adjust angular velocity and publish speed
     	ang_vel = angle_error*turn_in_place_KP;
-    	publishSpeed(0.0, ang_vel);
+    	PublishSpeed(0.0, ang_vel);
 
     	//update odometry
-    	updateOdom();
+    	UpdateOdom();
 
     	//update error
-    	angle_error = findAngleError(des_northing, des_easting);
+    	angle_error = FindAngleError(des_northing, des_easting);
 
     	finished_turning_in_place = abs(angle_error*180/M_PI) < 8.0 ? true : false;
       }
@@ -152,61 +196,29 @@ void TrackPoint::Task() {
       lin_vel = ang_vel*rad_curvature;      
     }
         
-    publishSpeed(lin_vel, ang_vel);
+    PublishSpeed(lin_vel, ang_vel);
     
     finished_turning_in_place = false;
-    face_path = false;
     
     loop_rate.sleep();
   }
 
   //tell the state controller you are done tracking
   printf("outside of track loop\n");
-  publishSpeed(0.0, 0.0);
-  //StateController::vehicle_state = FINISHED;
-  
+  PublishSpeed(0.0, 0.0);
 }
-
-
-
-/***********************************************************************
- *                                                                     *
- *             TURN IN PLACE IF YOU KNOW DESIRED ANGLE                 *
- *                                                                     *
- *********************************************************************/
-// void TrackPoint::turnInPlace(double theta_des) {
-//   double theta_curr, angle_error, ang_vel;
-//   bool finished_turning_in_place = false;
-
-//   while(!finished_turning_in_place && !goal_interrupt && ros::ok()) {
-//     theta_curr = getYaw(odom_quat);
-//     theta_curr = theta_curr < 0 ? (2*M_PI + theta_curr) : theta_curr;
-
-//     angle_error = theta_des - theta_curr;
-//     angle_error = angle_error > M_PI ? (angle_error - 2*M_PI) : angle_error;
-//     angle_error = angle_error < -M_PI ? (angle_error + 2*M_PI) : angle_error;
-
-//     //adjust angular velocity and publish speed
-//     ang_vel = angle_error*turn_in_place_KP;
-//     publishSpeed(0.0, ang_vel);
-
-//     //update odometry
-//     updateOdom();
-
-//     finished_turning_in_place = abs(angle_error*180/M_PI) < 5.0 ? true : false;
-//   }
-// }
 
 /***********************************************************************
  *                                                                     *
  *                    ODOM CALLBACK FUNCTION                           *
  *                                                                     *
  *********************************************************************/
-void TrackPoint::odom_callback(nav_msgs::Odometry msg) {
+void TrackPoint::OdomCallback(nav_msgs::Odometry msg) {
   //odom_msg = msg;
   should_start = true;
   odom_x = msg.pose.pose.position.x;
   odom_y = msg.pose.pose.position.y;
+  odom_vel = msg.twist.twist.linear.x;
   odom_quat = tf::Quaternion(0.0, 0.0, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w);
 }
 
@@ -215,7 +227,7 @@ void TrackPoint::odom_callback(nav_msgs::Odometry msg) {
  *                      PUBLISHER                                      *
  *                                                                     *
  *********************************************************************/
-void TrackPoint::publishSpeed(float lin_vel, float ang_vel) {
+void TrackPoint::PublishSpeed(float lin_vel, float ang_vel) {
   cmd_vel.linear.x = lin_vel;
   cmd_vel.angular.z = ang_vel;
   vel_pub.publish(cmd_vel);
@@ -226,7 +238,7 @@ void TrackPoint::publishSpeed(float lin_vel, float ang_vel) {
  *                      ROS SPIN                                       *
  *                                                                     *
  *********************************************************************/
-void TrackPoint::updateOdom() {
+void TrackPoint::UpdateOdom() {
   ros::spinOnce();
 }
 
@@ -235,7 +247,7 @@ void TrackPoint::updateOdom() {
  *                      FIND ANGLE ERROR                               *
  *                                                                     *
  *********************************************************************/
-float TrackPoint::findAngleError(float x_des, float y_des) {
+float TrackPoint::FindAngleError(float x_des, float y_des) {
   float theta_des, theta_curr, angle_error;
   theta_des = atan2((y_des - odom_y), (x_des - odom_x));
   theta_des = theta_des < 0 ? (2*M_PI + theta_des) : theta_des;
@@ -258,7 +270,7 @@ float TrackPoint::findAngleError(float x_des, float y_des) {
  *                      FIND POSITION ERROR                            *
  *                                                                     *
  *********************************************************************/
-float TrackPoint::findPositionError(float x_des, float y_des) {
+float TrackPoint::FindPositionError(float x_des, float y_des) {
   float position_error;
   position_error = sqrt(pow((odom_x - x_des),2) + pow((odom_y - y_des),2));
 
@@ -268,10 +280,23 @@ float TrackPoint::findPositionError(float x_des, float y_des) {
 
 /***********************************************************************
  *                                                                     *
+ *               FIND DISTANCE YOU SHOULD LOOK AHEAD                   *
+ *                                                                     *
+ *********************************************************************/
+float TrackPoint::FindLookAheadDistance() {
+  float curr_vel = odom_vel;
+
+  if(curr_vel <= 0.5) return 2.0;
+  else if(curr_vel <=1.0) return 4.0;
+  else return 5.0;
+}
+
+/***********************************************************************
+ *                                                                     *
  *                             MISC                                    *
  *                                                                     *
  *********************************************************************/
-inline double TrackPoint::wrapAngle( double angle )
+inline double TrackPoint::WrapAngle( double angle )
 {
     double twoPi = 2.0 * 3.141592865358979;
     return angle - twoPi * floor( angle / twoPi );

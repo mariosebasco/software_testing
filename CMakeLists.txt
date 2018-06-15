@@ -86,6 +86,10 @@ target_link_libraries(encoder_to_odom
   ${catkin_LIBRARIES}
   )
 
+add_dependencies(encoder_to_odom
+  testing_generate_messages_cpp
+  )
+
 #publish tf data
 add_executable(tf_publisher
   src/tf_pub.cpp
@@ -144,3 +148,9 @@ target_link_libraries(calibration_test
 # target_link_libraries(radar_exec
 #   ${catkin_LIBRARIES}
 #   )
+
+# add_dependencies(encoder_to_odom
+#   testing_generate_messages_cpp
+#   )
+
+

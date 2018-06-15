@@ -24,7 +24,7 @@
 class DWA : public AperiodicTask {
  public:
   bool REACHED_GOAL;
-  float GOAL_X, GOAL_Y;
+  float GOAL_X, GOAL_Y, ORIENTATION;
   
   struct VelocityStruct {
     float trans_vel;
@@ -59,7 +59,7 @@ class DWA : public AperiodicTask {
   bool ReachedGoal(float _goal_x, float _goal_y);
   void OdomCallback(nav_msgs::Odometry msg);
   void PublishVel(float trans_vel, float rot_vel);
-  //void TurnInPlace();
+  void TurnInPlace(float _des_theta);
 };
 
 #endif

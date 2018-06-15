@@ -22,17 +22,17 @@
 
 class Collision {
  public:
-  bool received_map;
-  bool received_odom;
     
   Collision();
-  void Init(double _move_time_input, double _resolution_input);
   bool Task(float _move_time, float _resolution, float _trans_vel, float _rot_vel, float &time_to_impact);
   bool Task(float move_time, float resolution);
   void UpdateCallbacks();
 
  private:
   float VEHICLE_WIDTH, VEHICLE_LENGTH;
+  bool received_map;
+  bool received_odom;
+
   ros::NodeHandle nh;
   ros::Subscriber odom_sub;
   ros::Subscriber costmap_sub;

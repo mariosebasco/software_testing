@@ -18,8 +18,9 @@ DWA::DWA(Collision* _collisionObject) : AperiodicTask() {
     
   received_odom = false;
   REACHED_GOAL = false;
-  GOAL_X = 6.0;
+  GOAL_X = 4.0;
   GOAL_Y = 0.0;
+  ORIENTATION = 0.0;
 
   MAX_TRANS_VEL = 0.40; //0.25m/s for testing
   MAX_ROT_VEL = 40.0*M_PI / 180.0;//M_PI/4.0;
@@ -46,6 +47,9 @@ void DWA::Task() {
     ros::spinOnce();
   }
   
+  GOAL_X = odom_msg.pose.pose.position.x + GOAL_X;
+  GOAL_Y = odom_msg.pose.pose.position.y + GOAL_Y;
+    
   float orientation_cost, obstacle_cost, velocity_cost, path_cost, distance_cost;
   float alpha, beta, gamma, zeta;
   float optimal_trans_vel, optimal_rot_vel;
@@ -60,7 +64,7 @@ void DWA::Task() {
   float opt_obstacle, opt_orientation, opt_vel, opt_distance, dist_to_goal;
   int backup_count = 0;
   
-  //ros::Rate loop_rate(10.0);
+  ros::Rate loop_rate(10.0);
     
   while(ros::ok()) {
     
@@ -81,27 +85,12 @@ void DWA::Task() {
     float curr_y = odom_msg.pose.pose.position.y;
     float curr_dist_to_goal = sqrt(pow((curr_x - GOAL_X), 2) + pow((curr_y - GOAL_Y), 2));
     
-    //vel_lower_limit = 0.1;
-    
     float num_trans_iterations = int((vel_upper_limit - vel_lower_limit)/RESOLUTION);
     float num_rot_iterations = int((rot_upper_limit - rot_lower_limit)/RESOLUTION);
 
     float temp_trans_vel = 0.0;
     float temp_rot_vel = 0.0;
-
-    /* ********************************************************************* */
-    // temp_trans_vel = 0.3;
-    // temp_rot_vel = 0.2;
-    // velocity_struct.trans_vel = temp_trans_vel;
-    // velocity_struct.rot_vel = temp_rot_vel;
-    // obstacle_cost = FindObstacleCost(velocity_struct);
-    // printf("obstacle cost: %f\n", obstacle_cost);
-
-    /* ********************************************************************* */
-
-    float temp_rot_upper = rot_upper_limit; 
-    float temp_rot_lower = -temp_rot_upper;
-
+    
     //update odom and costmap for the collision class
     collisionObject->UpdateCallbacks();
     
@@ -110,7 +99,7 @@ void DWA::Task() {
       
       for(int j = 0; j <= num_rot_iterations; j++) {
 
-    	temp_rot_vel = temp_rot_lower + j*((temp_rot_upper - temp_rot_lower)/num_rot_iterations);
+    	temp_rot_vel = rot_lower_limit + j*RESOLUTION;
     	velocity_struct.trans_vel = temp_trans_vel;
     	velocity_struct.rot_vel = temp_rot_vel;
 
@@ -125,7 +114,7 @@ void DWA::Task() {
     	path_cost = alpha*orientation_cost + beta*obstacle_cost + gamma*velocity_cost + zeta*distance_cost;
 
 	//**********************************************************************
-	
+	// TESTING
 	// printf("lin vel: %f\n", temp_trans_vel);
 	// printf("rot vel: %f\n", temp_rot_vel);
 	  
@@ -172,22 +161,6 @@ void DWA::Task() {
     std::cout << "****************************" <<std::endl;
     std::cout << "****************************" <<std::endl << std::endl;
 
-    //if max velocities are zero then you did not find any possible paths -- back up
-    // if(optimal_trans_vel == 0.0) {
-    //   if(backup_count == 1) {
-    // 	printf("NO PATHS FOUND\n");
-    // 	break;
-    //   }
-    //   PublishVel(-0.25, 0.0);
-    //   ros::Duration(2.0).sleep();
-    //   PublishVel(0.0, 45.0*M_PI/180.0);
-    //   ros::Duration(1.0).sleep();
-    //   PublishVel(0.0, 0.0);
-    //   ros::Duration(2.0).sleep();
-    //   backup_count += 1;
-    // }
-    // else backup_count = 0;
-
     max_path_cost = 0.0;
     optimal_trans_vel = 0.0;
     optimal_rot_vel = 0.0;
@@ -195,12 +168,13 @@ void DWA::Task() {
     if(ReachedGoal(GOAL_X, GOAL_Y)) {
       PublishVel(0.0, 0.0);
       printf("REACHED GOAL\n");
+      TurnInPlace(ORIENTATION);
       REACHED_GOAL = true;
       break;
     }
       
     ros::spinOnce();
-    //loop_rate.sleep();
+    loop_rate.sleep();
   }
 }
 
@@ -363,7 +337,7 @@ bool DWA::ReachedGoal(float _goal_x, float _goal_y) {
   
   goal_x = _goal_x;
   goal_y = _goal_y;
-  threshold = 0.2; //stop when theshold from goal
+  threshold = 0.4; //stop when theshold from goal
   curr_x = odom_msg.pose.pose.position.x;
   curr_y = odom_msg.pose.pose.position.y;
   // std::cout << goal_x << std::endl;
@@ -378,72 +352,29 @@ bool DWA::ReachedGoal(float _goal_x, float _goal_y) {
 }
 
 
-// void DWA::TurnInPlace() {
-//   PublishVel(0.0, M_PI/4.0);
-//   ros::Duration(1.0).sleep();
-// }
-
-// float FindDistanceCost(float _goal_x, float _goal_y) {
-//   float goal_x, float goal_y;
-//   float dist_to_goal;
-
-//   dist_to_goal = sqrt(pow((curr_x - goal_x), 2) + pow((curr_y - goal_y), 2));
-//   return dist_to_goal;
-// }
-
-
-
-
 /************************************************************************
- *                  FIND THE DYNAMIC WINDOW                             *
- *  The dynamic window is the set of velocities allowable given         * 
- *  the state. These velocities are calculated from the maximum         *
- *  acceleration and velocity values of the robot, as well as           *
- *  obstacles in the environment                                        *          
+ *                        REACH DESIRED ANGLE                           *
+ *                                                                      *
+ *                                                                      *
+ *                                                                      *          
  ***********************************************************************/
-// std::vector<DWA::VelocityStruct> DWA::FindDynamicWindow(VelocityStruct _velocity_struct, float _sim_time, float _resolution) {
-
-//   std::vector<VelocityStruct> velocities;
-//   float resolution, sim_time, time_to_impact;
-//   VelocityStruct velocity_struct;
-
-//   velocity_struct = _velocity_struct;
-//   resolution = _resolution;
-//   sim_time = _sim_time;
-
-//   float vel_upper_limit = velocity_struct.trans_vel + max_trans_acceleration*sim_time;
-//   float vel_lower_limit = velocity_struct.trans_vel - max_trans_acceleration*sim_time;
-//   float rot_upper_limit = velocity_struct.rot_vel + max_rot_acceleration*sim_time;
-//   float rot_lower_limit = velocity_struct.rot_vel - max_rot_acceleration*sim_time;
+void DWA::TurnInPlace(float _des_theta) {
+  float des_theta, curr_theta;
   
-//   if(vel_upper_limit > max_trans_vel) vel_upper_limit = max_trans_vel;
-//   if(vel_lower_limit < 0.0) vel_lower_limit = 0.0;
-//   if(rot_upper_limit > max_rot_vel) rot_upper_limit = max_rot_vel;
-//   if(rot_lower_limit < -max_rot_vel) rot_lower_limit = -max_rot_vel;
-  
-//   float num_trans_iterations = int(ceil((vel_upper_limit - vel_lower_limit)/resolution));
-//   float num_rot_iterations = int(ceil((rot_upper_limit - rot_lower_limit)/resolution));
+  des_theta = _des_theta;
 
-//   float temp_trans_vel = 0.0;
-//   float temp_rot_vel = 0.0;
-//   VelocityStruct temp_vel_struct;
-  
-//   for(int i = 0; i <= num_trans_iterations; i++) {
-//     for(int j = 0; j <= num_rot_iterations; j++) {
-//       temp_trans_vel = vel_lower_limit + i*resolution;
-//       temp_rot_vel = rot_lower_limit + j*resolution;
-      
+  while(true) {
+    curr_theta = getYaw(odom_quat);
 
-//       if(collisionObject->Task(sim_time, resolution, temp_trans_vel, temp_rot_vel, time_to_impact))
-// 	{
-// 	  break;
-// 	}
-      
-//       temp_vel_struct.trans_vel = temp_trans_vel;
-//       temp_vel_struct.rot_vel = temp_rot_vel;
-//       velocities.push_back(temp_vel_struct);
-//     }
-//   }
+    if(curr_theta > des_theta) PublishVel(0.0, 0.4);
+    else PublishVel(0.0, -0.4);
+    
+    if(fabs(curr_theta - des_theta) < (20.0*M_PI/180.0)) {
+      PublishVel(0.0, 0.0);
+      return;
+    }
+    
+    ros::spinOnce();
+  }
+}
 
-//   return velocities;
-// }
