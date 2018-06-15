@@ -165,8 +165,9 @@ void TrackPoint::Task() {
       while(!finished_turning_in_place && ros::ok()) {
 
     	//adjust angular velocity and publish speed
-    	ang_vel = angle_error*turn_in_place_KP;
-    	PublishSpeed(0.0, ang_vel);
+    	//ang_vel = angle_error*turn_in_place_KP;
+	if(angle_error > 0) PublishSpeed(0.0, 0.5);
+	else PublishSpeed(0.0, -0.5);
 
     	//update odometry
     	UpdateOdom();
@@ -176,6 +177,7 @@ void TrackPoint::Task() {
 
     	finished_turning_in_place = abs(angle_error*180/M_PI) < 8.0 ? true : false;
       }
+      PublishSpeed(0.0, 0.0);
     }
     
     //find the curvature given the point - 1/R = 2x/D^2
@@ -186,20 +188,18 @@ void TrackPoint::Task() {
     //given curvature find velocities
     float rad_curvature = 1/curvature;
     if(rad_curvature >= 0.0) {
-      float v_left = max_vel/2.0;
+      float v_left = curr_max_vel/2.0;
       ang_vel = v_left/(rad_curvature + L/2.0);
       lin_vel = ang_vel*rad_curvature;
     }
     else {
-      float v_right = max_vel/2.0;
+      float v_right = curr_max_vel/2.0;
       ang_vel = v_right/(rad_curvature - L/2.0);
       lin_vel = ang_vel*rad_curvature;      
     }
         
     PublishSpeed(lin_vel, ang_vel);
-    
     finished_turning_in_place = false;
-    
     loop_rate.sleep();
   }
 

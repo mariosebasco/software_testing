@@ -13,6 +13,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <math.h>
+
 #include "ros/ros.h"
 #include "sensor_msgs/NavSatFix.h"
 #include "utm.cpp"
@@ -130,15 +132,15 @@ public:
 
   void ExportFile(char *inputFile, char *outputFile) {
     std::string str_northing, str_easting;
-    float temp_vel, line_slope, line_intercept;
+    float temp_vel;
 
-    float distance_sum = 0.0;
+    double distance_sum = 0.0;
     float start_vel = 0.5;
     int num_points_in_line = 5; //always odd
     float vel_array[num_points_in_line];
     //float distance_array[num_points_in_line - 2];
-    float northing_array[num_points_in_line];
-    float easting_array[num_points_in_line];
+    double northing_array[num_points_in_line];
+    double easting_array[num_points_in_line];
 
     char *pEnd;
     
@@ -164,14 +166,19 @@ public:
     }
 
     while(true) {
-      line_slope = (easting_array[0] - easting_array[num_points_in_line - 1]) / \
-	(northing_array[0] - northing_array[num_points_in_line - 1]);
-      line_intercept = easting_array[0] - line_slope*northing_array[0];
-
+      int index2 = num_points_in_line - 1;
+      
       for(int i = 0; i < (num_points_in_line - 2); i++) {
-	distance_sum += fabs(line_slope*northing_array[i+1] - easting_array[i+1] + line_intercept)\
-	  / sqrt(pow(line_slope, 2) + 1);
+      double num = fabs((easting_array[index2] - easting_array[0])*northing_array[i+1]\
+		       - (northing_array[index2] - northing_array[0])*easting_array[i+1]\
+		       + northing_array[index2]*easting_array[0]\
+		       - easting_array[index2]*northing_array[0]);
+      double denom = sqrt(pow(easting_array[index2] - easting_array[0], 2)\
+			  + pow(northing_array[index2] - northing_array[0], 2));
+      distance_sum += num / denom;
       }
+
+      //outFile << std::fixed << distance_sum << std::endl;
       outFile << FindMaxVelocity(distance_sum) << std::endl;
       distance_sum = 0.0;
 
@@ -187,8 +194,8 @@ public:
 	}
 	break;
       }
-      
       std::getline(inFile, str_easting);
+      
       northing_array[num_points_in_line - 1] = strtof(str_northing.c_str(), &pEnd);
       easting_array[num_points_in_line - 1] = strtof(str_easting.c_str(), &pEnd);
     }
@@ -198,11 +205,11 @@ private:
   std::ifstream inFile;
   std::ofstream outFile;
 
-  float FindMaxVelocity(float _dist) {
-    float dist = _dist;
+  float FindMaxVelocity(double _dist) {
+    double dist = _dist;
     float max_vel = 1.5;
     
-    if(dist <= 0.5) return max_vel;
+    if(dist <= 0.25) return max_vel;
     else if(dist <= 1.5) return max_vel*2.0/3.0;
     else return max_vel / 3.0;
   }
