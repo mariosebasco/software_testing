@@ -70,9 +70,11 @@ void TrackPoint::Task() {
 
   int array_size = 10;
   int iterator_count = 0;
+  int closest_point_index;
   double northing_array[array_size];
   double easting_array[array_size];
   float vel_array[array_size];
+  float distance_array[array_size];
   float curr_max_vel = 0.5;
   
   // nh.getParam("/vehicle_width", L);
@@ -87,7 +89,7 @@ void TrackPoint::Task() {
     std::cout << "unable to open path file" << std::endl;
   }
 
-  velFile.open("/home/robot/catkin_ws/src/testing/gps_files/vel.txt");
+  velFile.open("/home/robot/catkin_ws/src/testing/gps_files/vel_map.txt");
   if (!velFile) {
     std::cout << "unable to open path file" << std::endl;
   }
@@ -101,6 +103,7 @@ void TrackPoint::Task() {
     easting_array[i] = strtof(str_easting.c_str(), &pEnd);
     vel_array[i] = strtof(str_vel.c_str(), &pEnd);
   }
+  
   des_northing = northing_array[0];
   des_easting = easting_array[0];
   
@@ -134,7 +137,8 @@ void TrackPoint::Task() {
       if(iterator_count == array_size) break;
       des_northing = northing_array[iterator_count];
       des_easting = easting_array[iterator_count];
-      curr_max_vel = vel_array[iterator_count];
+      closest_point_index = FindClosestPointIndex(northing_array, easting_array, array_size);
+      curr_max_vel = vel_array[closest_point_index];
       point_dist = FindPositionError(des_northing, des_easting);
     }
     
@@ -290,6 +294,30 @@ float TrackPoint::FindLookAheadDistance() {
   else if(curr_vel <=1.0) return 4.0;
   else return 5.0;
 }
+
+
+/***********************************************************************
+ *                                                                     *
+ *         FIND THE POINT CLOSEST TO YOUR CURRENT POSITION             *
+ *                                                                     *
+ *********************************************************************/
+int TrackPoint::FindClosestPointIndex(double *northing_array, double *easting_array, int _array_size) {
+  int min_index;
+  int array_size = _array_size;
+  float min_distance = 1000.0;
+  float curr_distance;
+  
+  for(int i = 0; i < array_size; i++) {
+    curr_distance = FindPositionError(northing_array[i], easting_array[i]);
+    if (curr_distance < min_distance) {
+      min_distance = curr_distance;
+      min_index = i;
+    }
+  }
+
+  return min_index;
+}
+
 
 /***********************************************************************
  *                                                                     *

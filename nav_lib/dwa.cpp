@@ -230,13 +230,6 @@ float DWA::FindOrientationCost(VelocityStruct _velocity_struct, float _goal_x, f
 
   //we say a maximum angle error would be off by 180 deg
   cost = (M_PI - fabs(angle_error))/M_PI;
-
-  // printf("next theta: %f\n", next_theta*180/M_PI);
-  // printf("next x: %f\n", next_x);
-  // printf("next y: %f\n", next_y);
-  // printf("dist to goal: %f\n", dist_to_goal);
-  // printf("orientation cost: %f\n", cost);
-
   return cost;
 }
 
@@ -271,9 +264,6 @@ float DWA::FindObstacleCost(VelocityStruct _velocity_struct) {
   
   collision = collisionObject->Task(sim_time, resolution, velocity_struct.trans_vel, velocity_struct.rot_vel, time_to_impact);
   if(!collision) return 1.0;
-  // printf("sim_time: %f\n", sim_time);
-  // printf("resolution: %f\n", resolution);
-  // printf("time: %f\n", time_to_impact);
   if((time_to_impact <= SIM_TIME)) return 0.0;
   else cost = time_to_impact / sim_time;
 
@@ -340,12 +330,8 @@ bool DWA::ReachedGoal(float _goal_x, float _goal_y) {
   threshold = 0.4; //stop when theshold from goal
   curr_x = odom_msg.pose.pose.position.x;
   curr_y = odom_msg.pose.pose.position.y;
-  // std::cout << goal_x << std::endl;
-  // std::cout << goal_y << std::endl;
   
   dist_to_goal = sqrt(pow((curr_x - goal_x), 2) + pow((curr_y - goal_y), 2));
-
-  //std::cout << dist_to_goal << std::endl;
 
   if(dist_to_goal <= threshold) return true;
   return false;
