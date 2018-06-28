@@ -70,7 +70,7 @@ void TrackPoint::Task() {
 
   int array_size = 10;
   int iterator_count = 0;
-  int closest_point_index;
+  int closest_point_index = 0;
   double northing_array[array_size];
   double easting_array[array_size];
   float vel_array[array_size];
@@ -131,7 +131,8 @@ void TrackPoint::Task() {
     //update tracking distance based on current velocity
     tracking_distance = FindLookAheadDistance();
     point_dist = FindPositionError(des_northing, des_easting);
-      
+
+    //This while loop updates the point you are tracking
     while(point_dist < tracking_distance) {
       iterator_count += 1;
       if(iterator_count == array_size) break;
@@ -142,7 +143,7 @@ void TrackPoint::Task() {
       point_dist = FindPositionError(des_northing, des_easting);
     }
     
-    //update the vector of points and allowable velocities
+    //this while loop updates the vector of points and allowable velocities
     while(FindPositionError(northing_array[array_size - 1], easting_array[array_size - 1]) < (tracking_distance + tracking_distance/2.0)) {
       std::getline(inFile, str_northing);
       if(inFile.eof()) {break;}
@@ -161,7 +162,7 @@ void TrackPoint::Task() {
       iterator_count -= 1;
     }
     
-
+    //Now that everything is updated you are ready to start sending command velocities
     angle_error = FindAngleError(des_northing, des_easting);
 
     //if you are facing the wrong direction turn around
@@ -258,8 +259,6 @@ float TrackPoint::FindAngleError(float x_des, float y_des) {
   theta_curr = getYaw(odom_quat);
   theta_curr = theta_curr < 0 ? (2*M_PI + theta_curr) : theta_curr;
 
-  // printf("theta des: %f\n", theta_des);
-  // printf("theta current: %f\n", theta_curr);
   angle_error = theta_des - theta_curr;
   angle_error = angle_error > M_PI ? (angle_error - 2*M_PI) : angle_error;
   angle_error = angle_error < -M_PI ? (angle_error + 2*M_PI) : angle_error;
@@ -324,8 +323,7 @@ int TrackPoint::FindClosestPointIndex(double *northing_array, double *easting_ar
  *                             MISC                                    *
  *                                                                     *
  *********************************************************************/
-inline double TrackPoint::WrapAngle( double angle )
-{
+inline double TrackPoint::WrapAngle( double angle ) {
     double twoPi = 2.0 * 3.141592865358979;
     return angle - twoPi * floor( angle / twoPi );
 }

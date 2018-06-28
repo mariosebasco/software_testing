@@ -27,6 +27,12 @@ public:
   bool use_controller, should_start;
   int KP, KI;
 
+
+  /***********************************************************************
+   *                                                                     *
+   *                      CONSTRUCTOR                                    *
+   *                                                                     *
+   *********************************************************************/
   RoboteqDriver(int rpm_input, bool controller_input) {
     encoder_pub = nh.advertise<testing::encoder_msg>("encoder_counts", 1);
     RPM = rpm_input;
@@ -35,7 +41,13 @@ public:
     KP = 5;
     KI = 20;
   }
-  
+
+
+  /***********************************************************************
+   *                                                                     *
+   *                      INITIALIZE MOTORS                              *
+   *                                                                     *
+   *********************************************************************/
   void roboteqInit() {
     //Initialize motor driver
     status = device.Connect("/dev/ttyACM0");
@@ -54,7 +66,7 @@ public:
     }
 
     //MOTOR 1 CONFIG
-    //***************************************************************************
+    //*****************************************************************
     ROS_INFO("set encoder PPR and mode to closed loop");
     //Set encoder mode and PPR
     if((status = device.SetConfig(_EMOD, 1, 18)) != RQ_SUCCESS) {
@@ -100,10 +112,10 @@ public:
     }
     //Wait 10 ms before sending another command to device
     usleep(10000);
-    //***************************************************************************
+    //***********************************************************
 
     //MOTOR 2 CONFIG
-    //***************************************************************************  
+    //************************************************************
     //Set encoder mode and PPR
     if((status = device.SetConfig(_EMOD, 2, 34)) != RQ_SUCCESS) {
       std::cout<<"failed --> "<<status<<std::endl;
@@ -154,13 +166,18 @@ public:
     usleep(10000);
 
     ROS_INFO("motors configured");
-    //***************************************************************************
+    //********************************************************************
     
     joy_sub = nh.subscribe("joy", 1, &RoboteqDriver::controllerCb, this);
     vel_sub = nh.subscribe("cmd_vel", 1, &RoboteqDriver::velocityCb, this);
   }
 
-  //callback function for velocity data
+
+  /***********************************************************************
+   *                                                                     *
+   *                      VELOCITY CALLBACK                              *
+   *                                                                     *
+   *********************************************************************/
   void velocityCb(geometry_msgs::Twist msg) {
     if(!use_controller) {
       should_start = true;
@@ -168,7 +185,11 @@ public:
     cmd_vel = msg;
   }
 
-  //Callback function for controller data
+  /***********************************************************************
+   *                                                                     *
+   *                      CONTROLLER CALLBACK                            *
+   *                                                                     *
+   *********************************************************************/
   void controllerCb(sensor_msgs::Joy msg) {
     if(use_controller) {
       should_start = true;
@@ -191,14 +212,22 @@ public:
     }
   }
 
-  //publish encoder data
+  /***********************************************************************
+   *                                                                     *
+   *                      PUBLISH ENCODER COUNT                          *
+   *                                                                     *
+   *********************************************************************/
   void pub_encoder(int encoder1_count, int encoder2_count) {
     encoderCount.encoder1_count = encoder1_count;
     encoderCount.encoder2_count = encoder2_count;
     encoder_pub.publish(encoderCount);
   }
 
-  //read battery voltage
+  /***********************************************************************
+   *                                                                     *
+   *                      RETURN BATTERY VOLTAGE                         *
+   *                                                                     *
+   *********************************************************************/
   int battVoltStatus() {
     int batt_volts;
     if((status = device.GetValue(_V, 2, batt_volts)) != RQ_SUCCESS) {
@@ -210,7 +239,11 @@ public:
     return batt_volts;
   }
 
-  //read encoders
+  /***********************************************************************
+   *                                                                     *
+   *                      READ ENCODER COUNT                             *
+   *                                                                     *
+   *********************************************************************/
   int readEncoder(int encoder) {
     int encoder_count;
     if((status = device.GetValue(_CR, encoder, encoder_count)) != RQ_SUCCESS) {
@@ -219,7 +252,12 @@ public:
     return encoder_count;
   }
 
-  //set_motor_vels
+
+  /***********************************************************************
+   *                                                                     *
+   *                      SET MOTOR VELOCITY                             *
+   *                                                                     *
+   *********************************************************************/
   void setVelocity(int motor, int velocity) {
     if((status = device.SetCommand(_G, motor, velocity)) != RQ_SUCCESS) {
       std::cout<<"failed --> "<<status<<std::endl;
@@ -245,7 +283,8 @@ private:
  *                                    MAIN                                              *
  *                                                                                      *
  *                                                                                      *
- ***************************************************************************************/           int main(int argc, char *argv[]) {
+ ***************************************************************************************/
+int main(int argc, char *argv[]) {
 
   ros::init(argc, argv, "roboteq_node");
 

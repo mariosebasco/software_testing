@@ -25,6 +25,7 @@ def initialization():
     # BLX = 4655421.30         #bottom left longitude
     # BLY = 442255.64           #bottom left latitude
 
+    
     #parking lot
     TRX = 4655437.08        #top right 
     TRY = 442323.22            #top right 

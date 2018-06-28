@@ -13,8 +13,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <math.h>
-
 #include "ros/ros.h"
 #include "sensor_msgs/NavSatFix.h"
 #include "utm.cpp"
@@ -28,7 +26,7 @@ class KmlExport {
 public:
   KmlExport() {}
   
-  void ExportFile(char *inputFile, char *outputFile) {
+  void exportFile(char *inputFile, char *outputFile) {
     std::string line;
     std::string latitude, longitude;
     std::string coods_tag = "<coordinates>";
@@ -52,12 +50,17 @@ public:
       printf("Unable to open file\n");
     }
 
+    std::getline(inFile, line);
+    open_char = line.find_first_of("<");
+    close_char = line.find_first_of(">");
+    length = close_char - open_char + 1;
     while(line.compare(open_char, length, coods_tag) != 0) {
-      std::getline(inFile, line);
       open_char = line.find_first_of("<");
       close_char = line.find_first_of(">");
       length = close_char - open_char + 1;
+      std::getline(inFile, line);
     } //find the coordinates tag
+
     cood_tag_open = open_char;
     cood_tag_length = length + 1;
 
@@ -86,7 +89,7 @@ public:
       LLtoUTM(e_id, lat_num, long_num, northing, easting, zone);
 
       //interpolate data and write to file
-      InterpolatePoints(northing, easting);
+      interpolatePoints(northing, easting);
             
       std::getline(inFile, line);
       line_count += 1;
@@ -100,7 +103,7 @@ private:
   std::ofstream outFile;
   int line_count;
 
-  void InterpolatePoints(double northing, double easting) {
+  void interpolatePoints(double northing, double easting) {
     static double prev_northing = 0.0;
     static double prev_easting = 0.0;
     float increment;
@@ -126,96 +129,11 @@ private:
   }
 };
 
-class VelMap {
-public:
-  VelMap() {}
 
-  void ExportFile(char *inputFile, char *outputFile) {
-    std::string str_northing, str_easting;
-    float temp_vel;
 
-    double distance_sum = 0.0;
-    float start_vel = 0.5;
-    int num_points_in_line = 5; //always odd
-    float vel_array[num_points_in_line];
-    //float distance_array[num_points_in_line - 2];
-    double northing_array[num_points_in_line];
-    double easting_array[num_points_in_line];
 
-    char *pEnd;
-    
-    inFile.open(inputFile);
-    outFile.open(outputFile);
-    if (!inFile) {
-      printf("Unable to open file\n");
-    }
-    if (!outFile) {
-      printf("Unable to open file\n");
-    }
 
-    //Initialize
-    for(int i = 0; i < num_points_in_line/2; i++) {
-      outFile << start_vel << std::endl;
-    }
-    
-    for(int i = 0; i < num_points_in_line; i++) {
-      std::getline(inFile, str_northing);
-      std::getline(inFile, str_easting);
-      northing_array[i] = strtof(str_northing.c_str(), &pEnd);
-      easting_array[i] = strtof(str_easting.c_str(), &pEnd);
-    }
-
-    while(true) {
-      int index2 = num_points_in_line - 1;
-      
-      for(int i = 0; i < (num_points_in_line - 2); i++) {
-      double num = fabs((easting_array[index2] - easting_array[0])*northing_array[i+1]\
-		       - (northing_array[index2] - northing_array[0])*easting_array[i+1]\
-		       + northing_array[index2]*easting_array[0]\
-		       - easting_array[index2]*northing_array[0]);
-      double denom = sqrt(pow(easting_array[index2] - easting_array[0], 2)\
-			  + pow(northing_array[index2] - northing_array[0], 2));
-      distance_sum += num / denom;
-      }
-
-      //outFile << std::fixed << distance_sum << std::endl;
-      outFile << FindMaxVelocity(distance_sum) << std::endl;
-      distance_sum = 0.0;
-
-      for(int i = 0; i < (num_points_in_line - 1); i++) {
-	northing_array[i] = northing_array[i + 1];
-	easting_array[i] = easting_array[i + 1];
-      }
-      
-      std::getline(inFile, str_northing);
-      if(inFile.eof()) {
-	for(int i = 0; i < num_points_in_line/2; i++) {
-	  outFile << start_vel << std::endl;
-	}
-	break;
-      }
-      std::getline(inFile, str_easting);
-      
-      northing_array[num_points_in_line - 1] = strtof(str_northing.c_str(), &pEnd);
-      easting_array[num_points_in_line - 1] = strtof(str_easting.c_str(), &pEnd);
-    }
-  }
-
-private:
-  std::ifstream inFile;
-  std::ofstream outFile;
-
-  float FindMaxVelocity(double _dist) {
-    double dist = _dist;
-    float max_vel = 1.5;
-    
-    if(dist <= 0.25) return max_vel;
-    else if(dist <= 1.5) return max_vel*2.0/3.0;
-    else return max_vel / 3.0;
-  }
-
-};
-
+KmlExport *kmlObject;
 
 /***********************************************************************
  *                                                                     *
@@ -227,16 +145,12 @@ int main(int argc, char *argv[]) {
   
   char inputFile[] = "/home/robot/catkin_ws/src/testing/gps_files/gps_raw.kml";
   char outputFile[] = "/home/robot/catkin_ws/src/testing/gps_files/path.txt";
-  char velFile[] = "/home/robot/catkin_ws/src/testing/gps_files/vel_map.txt";
   
-  KmlExport *kmlObject = new KmlExport();
-  VelMap *velMapObject = new VelMap();
+  kmlObject = new KmlExport();
   
-  kmlObject->ExportFile(inputFile, outputFile);
-  velMapObject->ExportFile(outputFile, velFile);
-  
+  kmlObject->exportFile(inputFile, outputFile);
+
   std::cout << "UTM CONVERSION COMPLETE" << std::endl;
-  std::cout << "VELOCITY MAP GENERATED" << std::endl;
 
   return 0;
 }

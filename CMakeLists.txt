@@ -141,16 +141,16 @@ target_link_libraries(calibration_test
 
 
 #add exec for radar
-# add_executable(radar_exec
-#   src/radar.cpp
-#   )
+add_executable(radar_exec
+  src/radar.cpp
+  )
 
-# target_link_libraries(radar_exec
-#   ${catkin_LIBRARIES}
-#   )
+target_link_libraries(radar_exec
+  ${catkin_LIBRARIES}
+  )
 
-# add_dependencies(encoder_to_odom
-#   testing_generate_messages_cpp
-#   )
+add_dependencies(radar_exec
+  testing_generate_messages_cpp
+  )
 
 
