@@ -55,7 +55,7 @@ class TrackPoint: public AperiodicTask {
   float FindPositionError(float x_des, float y_des);
   //void turnInPlace(double theta_des);
   float FindLookAheadDistance();
-  int FindClosestPointIndex(double *northing_array, double *easting_array, int _array_size);
+  float FindCurrMaxVel(float _vel2, float _vel1, float _dist2, float _dist1);
   double WrapAngle(double angle);
 };
   

@@ -12,6 +12,7 @@
 #include <typeinfo>
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include "ros/ros.h"
 #include "sensor_msgs/NavSatFix.h"
@@ -26,13 +27,15 @@ class KmlExport {
 public:
   KmlExport() {}
   
-  void exportFile(char *inputFile, char *outputFile) {
+  void ExportFile(char *inputFile, char *outputFile) {
     std::string line;
     std::string latitude, longitude;
     std::string coods_tag = "<coordinates>";
     std::string coods_tag_close = "</coordinates>";
     unsigned int open_char, close_char, length, cood_tag_open, cood_tag_length;
     double lat_num, long_num, northing, easting;
+    double prev_northing, prev_easting, next_northing, next_easting;
+      
     int e_id, zone;
 
     open_char = 0;
@@ -65,8 +68,7 @@ public:
     cood_tag_length = length + 1;
 
     std::getline(inFile, line);
-    line_count = 1;
-    
+
     while(line.compare(cood_tag_open, cood_tag_length, coods_tag_close) != 0) {
       //find and convert the longitude and latitude to UTM
       open_char = line.find_first_not_of(" ");
@@ -89,15 +91,90 @@ public:
       LLtoUTM(e_id, lat_num, long_num, northing, easting, zone);
 
       //interpolate data and write to file
-      interpolatePoints(northing, easting);
-            
+      //interpolatePoints(northing, easting);
+      outFile << std::fixed << northing << std::endl;
+      outFile << std::fixed << easting << std::endl;
+
       std::getline(inFile, line);
-      line_count += 1;
     }
     inFile.close();
     outFile.close();
   }
 
+
+  void ExportVelFile( char *_velFile, char *_coodFile) {
+    double prev_northing, prev_easting, curr_northing, curr_easting, next_northing, next_easting;
+    float curr_max_vel, abs_max_vel, abs_min_vel;
+    std::ofstream velFile;
+    std::ifstream coodFile;
+    std::string line;
+    char* pEnd;
+
+    abs_max_vel = 1.0;
+    abs_min_vel = 0.5;
+    
+    velFile.open(_velFile);
+    coodFile.open(_coodFile);
+
+    if (!velFile) {
+      printf("Unable to open file\n");
+    }
+    if (!coodFile) {
+      printf("Unable to open file\n");
+    }
+
+    //first point
+    std::getline(coodFile, line);
+    prev_northing = strtof(line.c_str(), &pEnd);
+    std::getline(coodFile, line);
+    prev_easting = strtof(line.c_str(), &pEnd);
+
+    //second point
+    std::getline(coodFile, line);
+    curr_northing = strtof(line.c_str(), &pEnd);
+    std::getline(coodFile, line);
+    curr_easting = strtof(line.c_str(), &pEnd);
+    
+    velFile << std::fixed << abs_min_vel << std::endl;
+    
+    while(ros::ok()) {
+      std::getline(coodFile, line);
+      if(coodFile.eof()) break;
+      next_northing = strtof(line.c_str(), &pEnd);
+      std::getline(coodFile, line);
+      next_easting = strtof(line.c_str(), &pEnd);      
+      double x1, x2, y1, y2, b, c, a, x_line, y_line, dist_to_line, dist_to_point;
+      float theta;
+      x1 = prev_northing;
+      y1 = prev_easting;
+      x2 = next_northing;
+      y2 = next_easting;
+      a = (y2 - y1); // line between these two markers
+      b = -(x2 - x1);
+      c = x2*y1 - x1*y2;
+      dist_to_line = fabs(a*curr_northing + b*curr_easting + c)/sqrt(pow(a, 2) + pow(b, 2));
+      x_line = (b*(b*curr_northing - a*curr_easting) - a*c)/(pow(a, 2) + pow(b, 2)); 
+      y_line = (a*(-b*curr_northing + a*curr_easting) - b*c)/(pow(a, 2) + pow(b, 2));
+      dist_to_point = sqrt(pow(prev_easting - y_line, 2) + pow(prev_northing - x_line, 2));
+      theta = atan2(dist_to_line, dist_to_point)*180.0/M_PI;
+
+      std::cout << theta << std::endl;
+      
+      curr_max_vel = abs_min_vel + (abs_max_vel - abs_min_vel)*(45.0 - theta)/45.0;
+      if (curr_max_vel < abs_min_vel) curr_max_vel = abs_min_vel;
+
+      velFile << std::fixed << curr_max_vel << std::endl;
+
+      prev_northing = curr_northing;
+      prev_easting = curr_easting;
+      curr_northing = next_northing;
+      curr_easting = next_easting;
+    }
+    velFile << std::fixed << abs_min_vel << std::endl;
+    velFile.close();
+    coodFile.close();
+  }
+  
 private:
   std::ifstream inFile;
   std::ofstream outFile;
@@ -145,10 +222,11 @@ int main(int argc, char *argv[]) {
   
   char inputFile[] = "/home/robot/catkin_ws/src/testing/gps_files/gps_raw.kml";
   char outputFile[] = "/home/robot/catkin_ws/src/testing/gps_files/path.txt";
-  
+  char velFile[] = "/home/robot/catkin_ws/src/testing/gps_files/vel.txt";
   kmlObject = new KmlExport();
   
-  kmlObject->exportFile(inputFile, outputFile);
+  kmlObject->ExportFile(inputFile, outputFile);
+  kmlObject->ExportVelFile(velFile, outputFile);
 
   std::cout << "UTM CONVERSION COMPLETE" << std::endl;
 
