@@ -27,10 +27,10 @@ def initialization():
 
     
     #parking lot
-    TRX = 4655437.08        #top right 
-    TRY = 442323.22            #top right 
-    BLX = 4655388.90         #bottom left 
-    BLY = 442199.02           #bottom left 
+    TRX = 16.192 #4655437.08        #top right 
+    TRY = 40.0 #442323.22            #top right 
+    BLX = -16.192 #4655388.90         #bottom left 
+    BLY = -40.0 #442199.02           #bottom left 
     
     #mapFile = '/home/robot/catkin_ws/src/testing/images/back_alley.PNG'
     mapFile = '/home/robot/catkin_ws/src/testing/images/parking_lot.png'

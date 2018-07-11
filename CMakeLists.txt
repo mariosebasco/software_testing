@@ -99,7 +99,7 @@ target_link_libraries(tf_publisher
   ${catkin_LIBRARIES}
   )
 
-#testing stuff
+#navigation library
 add_library(nav_lib
   nav_lib/PeriodicTask.cpp
   nav_lib/ThreadTask.cpp
@@ -111,6 +111,15 @@ add_library(nav_lib
   nav_lib/dwa.cpp
   )
 
+#sim library
+add_library(sim_lib
+  sim_lib/PeriodicTask.cpp
+  sim_lib/ThreadTask.cpp
+  sim_lib/AperiodicTask.cpp
+  sim_lib/sim_track.cpp
+  )
+
+#state controller for vehicle
 add_executable(state_controller
   src/state_controller.cpp
   )
@@ -118,6 +127,16 @@ add_executable(state_controller
 target_link_libraries(state_controller
   ${catkin_LIBRARIES}
   nav_lib
+  )
+
+#state controller for simulation
+add_executable(sim_state_controller
+  src/sim_state_controller.cpp
+  )
+
+target_link_libraries(sim_state_controller
+  ${catkin_LIBRARIES}
+  sim_lib
   )
 
 #publish gps long and lat from received path
@@ -153,4 +172,12 @@ add_dependencies(radar_exec
   testing_generate_messages_cpp
   )
 
+#testing with lidar
+add_executable(lidar_testing
+  src/lidar_testing.cpp
+  )
+
+target_link_libraries(lidar_testing
+  ${catkin_LIBRARIES}
+  )
 

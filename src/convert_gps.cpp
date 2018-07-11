@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <cstdlib>
 
 #include "ros/ros.h"
 #include "sensor_msgs/NavSatFix.h"
@@ -143,26 +144,39 @@ public:
       next_northing = strtof(line.c_str(), &pEnd);
       std::getline(coodFile, line);
       next_easting = strtof(line.c_str(), &pEnd);      
-      double x1, x2, y1, y2, b, c, a, x_line, y_line, dist_to_line, dist_to_point;
-      float theta;
-      x1 = prev_northing;
-      y1 = prev_easting;
-      x2 = next_northing;
-      y2 = next_easting;
-      a = (y2 - y1); // line between these two markers
-      b = -(x2 - x1);
-      c = x2*y1 - x1*y2;
-      dist_to_line = fabs(a*curr_northing + b*curr_easting + c)/sqrt(pow(a, 2) + pow(b, 2));
-      x_line = (b*(b*curr_northing - a*curr_easting) - a*c)/(pow(a, 2) + pow(b, 2)); 
-      y_line = (a*(-b*curr_northing + a*curr_easting) - b*c)/(pow(a, 2) + pow(b, 2));
-      dist_to_point = sqrt(pow(prev_easting - y_line, 2) + pow(prev_northing - x_line, 2));
-      theta = atan2(dist_to_line, dist_to_point)*180.0/M_PI;
-
-      std::cout << theta << std::endl;
+      // double x1, x2, y1, y2, b, c, a, x_line, y_line, dist_to_line, dist_to_point;
+      // float theta;
+      // x1 = prev_northing;
+      // y1 = prev_easting;
+      // x2 = next_northing;
+      // y2 = next_easting;
+      // a = (y2 - y1); // line between these two markers
+      // b = -(x2 - x1);
+      // c = x2*y1 - x1*y2;
+      // dist_to_line = fabs(a*curr_northing + b*curr_easting + c)/sqrt(pow(a, 2) + pow(b, 2));
+      // x_line = (b*(b*curr_northing - a*curr_easting) - a*c)/(pow(a, 2) + pow(b, 2)); 
+      // y_line = (a*(-b*curr_northing + a*curr_easting) - b*c)/(pow(a, 2) + pow(b, 2));
+      // dist_to_point = sqrt(pow(prev_easting - y_line, 2) + pow(prev_northing - x_line, 2));
+      // theta = atan2(dist_to_line, dist_to_point)*180.0/M_PI;
+      float x1 = prev_northing;
+      float x2 = curr_northing;
+      float x3 = next_northing;
+      float y1 = prev_easting;
+      float y2 = curr_easting;
+      float y3 = next_easting;
       
-      curr_max_vel = abs_min_vel + (abs_max_vel - abs_min_vel)*(45.0 - theta)/45.0;
-      if (curr_max_vel < abs_min_vel) curr_max_vel = abs_min_vel;
+      float a = sqrt(pow(y1 - y2, 2) + pow(x1 - x2, 2));
+      float b = sqrt(pow(y2 - y3, 2) + pow(x2 - x3, 2));
+      float c = sqrt(pow(y1 - y3, 2) + pow(x1 - x3, 2));
 
+      float theta = acos((pow(c, 2) - pow(a, 2) - pow(b, 2)) / (2*a*b));
+
+      if(theta > M_PI/2.0) curr_max_vel = abs_min_vel;
+      else curr_max_vel = abs_min_vel + (abs_max_vel - abs_min_vel)*((M_PI/2.0) - theta)/(M_PI/2.0);
+
+      std::cout << theta*180.0/M_PI << std::endl;
+      std::cout << curr_max_vel << std::endl;
+      
       velFile << std::fixed << curr_max_vel << std::endl;
 
       prev_northing = curr_northing;

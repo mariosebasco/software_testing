@@ -7,23 +7,21 @@
  */
 
 
-#include "track.h"
+#include "sim_track.h"
 
 /***********************************************************************
  *                                                                     *
  *                      CONSTRUCTOR                                    *
  *                                                                     *
  *********************************************************************/
-TrackPoint::TrackPoint(Collision* _collisionObject) : AperiodicTask() {
+TrackPoint::TrackPoint() : AperiodicTask() {
   vel_pub = nh.advertise<geometry_msgs::Twist>("cmd_vel", 1);
   odom_sub = nh.subscribe("odom", 1, &TrackPoint::OdomCallback, this);    
   should_start = false;
 
-  collisionObject = _collisionObject;
-
   position_KP = 1.0;
   angle_KP = 1.0;
-  turn_in_place_KP = 0.85;
+  turn_in_place_KP = 0.65;
 
   COLLISION_DETECTED = false;
 }
@@ -404,6 +402,35 @@ float TrackPoint::FindCurrMaxVel(float _vel2, float _vel1, float _dist2, float _
 }
 
 
+
+/***********************************************************************
+ *                                                                     *
+ *               FIND DISTANCE FROM CAR TO LINE OF PATH                *
+ *                                                                     *
+ *********************************************************************/
+// float TrackPoint::FindDistToLine(double _x1, double _y1, double _x2, double _y2) {
+//   double x1, x2, y1, y2, b, c, a, x_line, y_line, dist;
+//   float percent_travelled;
+
+//   x1 = _x1;
+//   y1 = _y1;
+//   x2 = _x2;
+//   y2 = _y2;
+  
+//   a = (y2 - y1); // line between these two markers
+//   b = -(x2 - x1);
+//   c = x2*y1 - x1*y2;
+
+//   dist = fabs(a*odom_x + b*odom_y + c)/sqrt(pow(a, 2) + pow(b, 2));
+//   // x_line = (b*(b*odom_x - a*odom_y) - a*c)/(pow(a, 2) + pow(b, 2)); // where the car is in this line
+//   // y_line = (a*(-b*odom_x + a*odom_y) - b*c)/(pow(a, 2) + pow(b, 2));
+//   // dist2 = sqrt(pow((x_line - x2), 2) + pow((y_line - y2), 2)); // dist from car to next lat/lon marker
+//   //dist1 = sqrt(pow((x_line - x1), 2) + pow((y_line - y1), 2));
+
+//     return dist;
+// }
+
+
 /***********************************************************************
  *                                                                     *
  *               FIND DISTANCE FROM CAR TO LINE SEGMENT                *
@@ -445,3 +472,221 @@ inline double TrackPoint::WrapAngle( double angle ) {
     return angle - twoPi * floor( angle / twoPi );
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// /***********************************************************************
+//  *                                                                     *
+//  *         FIND THE POINT CLOSEST TO YOUR CURRENT POSITION             *
+//  *                                                                     *
+//  *********************************************************************/
+// int TrackPoint::FindClosestPointIndex(double *northing_array, double *easting_array, int _array_size) {
+//   int min_index;
+//   int array_size = _array_size;
+//   float min_distance = 1000.0;
+//   float curr_distance;
+  
+//   for(int i = 0; i < array_size; i++) {
+//     curr_distance = FindPositionError(northing_array[i], easting_array[i]);
+//     if (curr_distance < min_distance) {
+//       min_distance = curr_distance;
+//       min_index = i;
+//     }
+//   }
+
+//   return min_index;
+// }
+
+
+
+// /***********************************************************************
+//  *                                                                     *
+//  *                             MAIN TASK                               *
+//  *                                                                     *
+//  *********************************************************************/
+// void TrackPoint::Task() {
+
+//   //wait for odom data before starting this function
+//   while(!should_start) {
+//     UpdateOdom();
+//   }
+  
+//   float tracking_distance = 1.0; //how far down the path the point we are tracking is
+  
+//   //import path file
+//   std::ifstream inFile, velFile;
+//   std::string str_northing, str_easting, str_vel;
+//   double des_northing, des_easting, point_dist;
+//   double curvature, ang_vel, lin_vel;
+//   float angle_error;
+//   bool finished_turning_in_place = false;
+
+//   float L, max_vel, sim_time, resolution;
+
+//   L = 0.4; //meters
+//   max_vel = 0.5; //m/s
+//   sim_time = 3; //seconds
+//   resolution = 0.25; //seconds
+
+//   int array_size = 10;
+//   int iterator_count = 0;
+//   int closest_point_index = 0;
+//   double northing_array[array_size];
+//   double easting_array[array_size];
+//   float vel_array[array_size];
+//   float distance_array[array_size];
+//   float curr_max_vel = 0.5;
+  
+//   // nh.getParam("/vehicle_width", L);
+//   // nh.getParam("/max_velocity", max_vel);
+//   // nh.getParam("/sim_time_collision", sim_time);
+//   // nh.getParam("/resolution", resolution);
+
+//   char *pEnd;
+  
+//   inFile.open("/home/robot/catkin_ws/src/testing/gps_files/path.txt");
+//   if (!inFile) {
+//     std::cout << "unable to open path file" << std::endl;
+//   }
+
+//   velFile.open("/home/robot/catkin_ws/src/testing/gps_files/vel_map.txt");
+//   if (!velFile) {
+//     std::cout << "unable to open path file" << std::endl;
+//   }
+
+//   //Initialize a list of the first ten path points and velocities
+//   for(int i = 0; i < array_size; i++) {
+//     std::getline(inFile, str_northing);
+//     std::getline(inFile, str_easting);
+//     std::getline(velFile, str_vel);
+//     northing_array[i] = strtof(str_northing.c_str(), &pEnd);
+//     easting_array[i] = strtof(str_easting.c_str(), &pEnd);
+//     vel_array[i] = strtof(str_vel.c_str(), &pEnd);
+//   }
+  
+//   des_northing = northing_array[0];
+//   des_easting = easting_array[0];
+  
+//   ros::Rate loop_rate(10);
+  
+//   while((iterator_count != array_size) && ros::ok()) {
+//     //update odometry
+//     UpdateOdom();
+
+//     //if collision is detected let the local planner take over and wait for it to finish
+//     if(collisionObject->Task(sim_time, resolution)) {
+//       printf("collision detected\n");
+//       GOAL_X = des_northing - odom_x;
+//       GOAL_Y = des_easting - odom_y;
+//       ORIENTATION = getYaw(odom_quat);
+
+//       COLLISION_DETECTED = true;
+//       PublishSpeed(0.0, 0.0);
+//       while(COLLISION_DETECTED) {
+// 	ros::Duration(1.0).sleep();
+//       }
+//       UpdateOdom();
+//     }
+
+//     //update tracking distance based on current velocity
+//     tracking_distance = FindLookAheadDistance();
+//     point_dist = FindPositionError(des_northing, des_easting);
+
+//     //This while loop updates the point you are tracking
+//     while(point_dist < tracking_distance) {
+//       iterator_count += 1;
+//       if(iterator_count == array_size) break;
+//       des_northing = northing_array[iterator_count];
+//       des_easting = easting_array[iterator_count];
+//       closest_point_index = FindClosestPointIndex(northing_array, easting_array, array_size);
+//       curr_max_vel = vel_array[closest_point_index];
+//       point_dist = FindPositionError(des_northing, des_easting);
+//     }
+    
+//     //this while loop updates the vector of points and allowable velocities
+//     while(FindPositionError(northing_array[array_size - 1], easting_array[array_size - 1]) < (tracking_distance + tracking_distance/2.0)) {
+//       std::getline(inFile, str_northing);
+//       if(inFile.eof()) {break;}
+//       std::getline(inFile, str_easting);
+//       std::getline(velFile, str_vel);
+
+//       for(int i = 0; i < (array_size - 1); i++) {
+// 	northing_array[i] = northing_array[i + 1];
+// 	easting_array[i] = easting_array[i + 1];
+// 	vel_array[i] = vel_array[i + 1];
+//       }
+      
+//       northing_array[array_size - 1] = strtof(str_northing.c_str(), &pEnd);
+//       easting_array[array_size - 1] = strtof(str_easting.c_str(), &pEnd);
+//       vel_array[array_size - 1] = strtof(str_vel.c_str(), &pEnd);
+//       iterator_count -= 1;
+//     }
+    
+//     //Now that everything is updated you are ready to start sending command velocities
+//     angle_error = FindAngleError(des_northing, des_easting);
+
+//     //if you are facing the wrong direction turn around
+//     if(abs(angle_error) > (70.0*M_PI/180.0)) {
+//       while(!finished_turning_in_place && ros::ok()) {
+
+//     	//adjust angular velocity and publish speed
+//     	//ang_vel = angle_error*turn_in_place_KP;
+// 	if(angle_error > 0) PublishSpeed(0.0, 0.5);
+// 	else PublishSpeed(0.0, -0.5);
+
+//     	//update odometry
+//     	UpdateOdom();
+
+//     	//update error
+//     	angle_error = FindAngleError(des_northing, des_easting);
+
+//     	finished_turning_in_place = abs(angle_error*180/M_PI) < 8.0 ? true : false;
+//       }
+//       PublishSpeed(0.0, 0.0);
+//     }
+    
+//     //find the curvature given the point - 1/R = 2x/D^2
+//     float theta_curr = getYaw(odom_quat);// + imu_drift;
+//     float easting_vehicle = (des_northing - odom_x)*sin(-theta_curr) + (des_easting - odom_y)*cos(-theta_curr);
+//     float curvature = 2*easting_vehicle/(point_dist*point_dist);
+
+//     //given curvature find velocities
+//     float rad_curvature = 1/curvature;
+//     if(rad_curvature >= 0.0) {
+//       float v_left = curr_max_vel/2.0;
+//       ang_vel = v_left/(rad_curvature + L/2.0);
+//       lin_vel = ang_vel*rad_curvature;
+//     }
+//     else {
+//       float v_right = curr_max_vel/2.0;
+//       ang_vel = v_right/(rad_curvature - L/2.0);
+//       lin_vel = ang_vel*rad_curvature;      
+//     }
+        
+//     PublishSpeed(lin_vel, ang_vel);
+//     finished_turning_in_place = false;
+//     loop_rate.sleep();
+//   }
+
+//   //tell the state controller you are done tracking
+//   printf("outside of track loop\n");
+//   PublishSpeed(0.0, 0.0);
+// }

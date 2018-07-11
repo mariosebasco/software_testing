@@ -31,7 +31,7 @@ class TrackPoint: public AperiodicTask {
   bool COLLISION_DETECTED;
   float GOAL_X, GOAL_Y, ORIENTATION;
   
-  TrackPoint(Collision* _collisionObject);
+  TrackPoint();
   int Init();
   void Task();
   void PublishSpeed(float lin_vel, float ang_vel);
@@ -56,8 +56,8 @@ class TrackPoint: public AperiodicTask {
   //void turnInPlace(double theta_des);
   float FindLookAheadDistance();
   float FindCurrMaxVel(float _vel2, float _vel1, float _dist2, float _dist1);
-  double FindDistToSegment(double _x1, double _y1, double _x2, double _y2);
   //float FindDistToLine(double _x1, double _y1, double _x2, double _y2);
+  double FindDistToSegment(double _x1, double _y1, double _x2, double _y2);
   double WrapAngle(double angle);
 };
   

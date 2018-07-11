@@ -11,7 +11,7 @@
  */
 
 
-#include "state_controller.h"
+#include "sim_state_controller.h"
 
 VehicleState StateController::vehicle_state = IDLE;
 
@@ -23,10 +23,10 @@ VehicleState StateController::vehicle_state = IDLE;
 int main(int argc, char **argv) {
   ros::init(argc, argv, "sample_node");
 
-  Collision *collisionObject = new Collision();
-  TrackPoint *trackPointObject = new TrackPoint(collisionObject);
-  DWA *dwaObject = new DWA(collisionObject);
-  Video *videoObject = new Video();
+  //Collision *collisionObject = new Collision();
+  TrackPoint *trackPointObject = new TrackPoint();
+  //DWA *dwaObject = new DWA(collisionObject);
+  //Video *videoObject = new Video();
   
   bool will_collide;
   int ret;
@@ -94,9 +94,9 @@ int main(int argc, char **argv) {
 
   std::cout << "EXITING" << std::endl;
   delete trackPointObject;
-  delete dwaObject;
-  delete collisionObject;
-  delete videoObject;
+  // delete dwaObject;
+  // delete collisionObject;
+  // delete videoObject;
   
   return 0;
 }
