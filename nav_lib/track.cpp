@@ -20,7 +20,7 @@ TrackPoint::TrackPoint(Collision* _collisionObject) : AperiodicTask() {
   should_start = false;
 
   collisionObject = _collisionObject;
-
+  
   position_KP = 1.0;
   angle_KP = 1.0;
   turn_in_place_KP = 0.85;
@@ -404,6 +404,35 @@ float TrackPoint::FindCurrMaxVel(float _vel2, float _vel1, float _dist2, float _
 }
 
 
+
+/***********************************************************************
+ *                                                                     *
+ *               FIND DISTANCE FROM CAR TO LINE OF PATH                *
+ *                                                                     *
+ *********************************************************************/
+// float TrackPoint::FindDistToLine(double _x1, double _y1, double _x2, double _y2) {
+//   double x1, x2, y1, y2, b, c, a, x_line, y_line, dist;
+//   float percent_travelled;
+
+//   x1 = _x1;
+//   y1 = _y1;
+//   x2 = _x2;
+//   y2 = _y2;
+  
+//   a = (y2 - y1); // line between these two markers
+//   b = -(x2 - x1);
+//   c = x2*y1 - x1*y2;
+
+//   dist = fabs(a*odom_x + b*odom_y + c)/sqrt(pow(a, 2) + pow(b, 2));
+//   // x_line = (b*(b*odom_x - a*odom_y) - a*c)/(pow(a, 2) + pow(b, 2)); // where the car is in this line
+//   // y_line = (a*(-b*odom_x + a*odom_y) - b*c)/(pow(a, 2) + pow(b, 2));
+//   // dist2 = sqrt(pow((x_line - x2), 2) + pow((y_line - y2), 2)); // dist from car to next lat/lon marker
+//   //dist1 = sqrt(pow((x_line - x1), 2) + pow((y_line - y1), 2));
+
+//     return dist;
+// }
+
+
 /***********************************************************************
  *                                                                     *
  *               FIND DISTANCE FROM CAR TO LINE SEGMENT                *
@@ -444,4 +473,5 @@ inline double TrackPoint::WrapAngle( double angle ) {
     double twoPi = 2.0 * 3.141592865358979;
     return angle - twoPi * floor( angle / twoPi );
 }
+
 

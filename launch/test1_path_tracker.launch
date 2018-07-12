@@ -34,8 +34,9 @@
 
   
   <!-- LiDAR-->
-  <node name="urg_node" pkg="urg_node" type="urg_node" args="_ip_address:=192.168.0.10 _frame_id:=hokuyo_link _angle_min:=-1.5707963 _angle_max:=1.5707963"/>
-
+  <!-- <node name="urg_node" pkg="urg_node" type="urg_node" args="_ip_address:=192.168.0.10 _frame_id:=hokuyo_link _angle_min:=-1.5707963 _angle_max:=1.5707963"/> -->
+  <include file="$(find lms1xx)/launch/LMS1xx.launch" />
+  
   <!-- create costmap from laser scan -->
   <include file="$(find costmap_2d)/launch/example.launch" />
   
