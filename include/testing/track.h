@@ -29,7 +29,8 @@ class TrackPoint: public AperiodicTask {
   
   //variables used by the state transition file
   bool COLLISION_DETECTED;
-  float GOAL_X, GOAL_Y, ORIENTATION;
+  float GOAL_X, GOAL_Y;//, ORIENTATION;
+  int PATH_POINT;
   
   TrackPoint(Collision* _collisionObject);
   int Init();

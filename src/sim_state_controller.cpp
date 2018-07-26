@@ -23,10 +23,10 @@ VehicleState StateController::vehicle_state = IDLE;
 int main(int argc, char **argv) {
   ros::init(argc, argv, "sample_node");
 
-  //Collision *collisionObject = new Collision();
-  TrackPoint *trackPointObject = new TrackPoint();
-  //DWA *dwaObject = new DWA(collisionObject);
-  //Video *videoObject = new Video();
+  Collision *collisionObject = new Collision();
+  TrackPoint *trackPointObject = new TrackPoint(collisionObject);
+  DWA *dwaObject = new DWA(collisionObject);
+  Video *videoObject = new Video();
   
   bool will_collide;
   int ret;
@@ -36,7 +36,9 @@ int main(int argc, char **argv) {
   //dwaObject->Init();
   
   ros::Rate loop_rate(10);
+
   //while(ros::ok()) {loop_rate.sleep();}
+  
   while(ros::ok()) {
 
     switch(StateController::vehicle_state) {
@@ -46,21 +48,22 @@ int main(int argc, char **argv) {
       break;
       
     case TRACKING_GLOBAL:
-      // if(trackPointObject->COLLISION_DETECTED) {
-      // 	StateController::vehicle_state = TRACKING_LOCAL;
-      // 	dwaObject->GOAL_X = trackPointObject->GOAL_X;
-      // 	dwaObject->GOAL_Y = trackPointObject->GOAL_Y;
-      // 	dwaObject->ORIENTATION = trackPointObject->ORIENTATION;
-      // 	dwaObject->Init();
-      // }
-      // printf("tracking global path\n");
+      if(trackPointObject->COLLISION_DETECTED) {
+      	StateController::vehicle_state = TRACKING_LOCAL;
+      	dwaObject->GOAL_X = trackPointObject->GOAL_X;
+      	dwaObject->GOAL_Y = trackPointObject->GOAL_Y;
+	dwaObject->PATH_POINT = trackPointObject->PATH_POINT;
+      	dwaObject->Init();
+      }
+      //printf("tracking global path\n");
       break;
       
     case TRACKING_LOCAL:
-      // if(dwaObject->REACHED_GOAL) {
-      // 	StateController::vehicle_state = TRACKING_GLOBAL;
-      // 	trackPointObject->COLLISION_DETECTED = false;
-      //}
+      if(dwaObject->REACHED_GOAL) {
+	trackPointObject->PATH_POINT = dwaObject->PATH_POINT;
+      	StateController::vehicle_state = TRACKING_GLOBAL;
+      	trackPointObject->COLLISION_DETECTED = false;
+      }
       printf("tracking global path\n");
       break;
       
@@ -94,9 +97,9 @@ int main(int argc, char **argv) {
 
   std::cout << "EXITING" << std::endl;
   delete trackPointObject;
-  // delete dwaObject;
-  // delete collisionObject;
-  // delete videoObject;
+  delete dwaObject;
+  delete collisionObject;
+  delete videoObject;
   
   return 0;
 }

@@ -22,10 +22,10 @@ void callback(nav_msgs::Odometry msg) {
   odom_trans.child_frame_id = "chassis";
 
   odom_trans.transform.translation.x = msg.pose.pose.position.x;
-  odom_trans.transform.translation.y = -msg.pose.pose.position.y;
+  odom_trans.transform.translation.y = msg.pose.pose.position.y;
   odom_trans.transform.translation.z = 0.0;
   odom_trans.transform.rotation.z = msg.pose.pose.orientation.z;
-  odom_trans.transform.rotation.w = -msg.pose.pose.orientation.w;
+  odom_trans.transform.rotation.w = msg.pose.pose.orientation.w;
 
   //send the transform
   odom_broadcaster.sendTransform(odom_trans);
@@ -43,19 +43,6 @@ void callback(nav_msgs::Odometry msg) {
   //send the transform
   odom_broadcaster.sendTransform(odom_trans);
 
-  //chassis to RADAR
-  odom_trans.header.stamp = current_time;
-  odom_trans.header.frame_id = "chassis";
-  odom_trans.child_frame_id = "esr_1";
-
-  odom_trans.transform.translation.x = 0.27;
-  odom_trans.transform.translation.y = 0.0;
-  odom_trans.transform.translation.z = 0.227;
-  odom_trans.transform.rotation = odom_quat;
-
-  //send the transform
-  odom_broadcaster.sendTransform(odom_trans);
-  
   //chassis to camera
   odom_trans.header.stamp = current_time;
   odom_trans.header.frame_id = "chassis";
@@ -89,7 +76,7 @@ int main(int argc, char** argv){
   ros::init(argc, argv, "tf_publisher_node");
 
   ros::NodeHandle nh;
-  ros::Subscriber odom_sub = nh.subscribe("local/odom", 1, callback);
+  ros::Subscriber odom_sub = nh.subscribe("odom", 1, callback);
   
   ros::spin();
     

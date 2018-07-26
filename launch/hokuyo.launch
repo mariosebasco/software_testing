@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<launch>
+  
+  <node name="urg_node" pkg="urg_node" type="urg_node" args="_ip_address:=172.168.203.5 _frame_id:=esr_1 _angle_min:=-1.5707963 _angle_max:=1.5707963"/>
+
+</launch>

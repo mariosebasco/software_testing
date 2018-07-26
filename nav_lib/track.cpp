@@ -63,6 +63,7 @@ void TrackPoint::Task() {
   std::vector<double> northings;
   std::vector<double> eastings;
   std::vector<float> velocities;
+  int line_count = 1;
   int vector_size = 2; 
 
   float L, max_vel, sim_time, resolution;
@@ -79,12 +80,12 @@ void TrackPoint::Task() {
 
   //open path files and read first point, then turn to face it
   char *pEnd;
-  inFile.open("/home/robot/catkin_ws/src/testing/gps_files/sim_path.txt");
+  inFile.open("/home/robot/catkin_ws/src/testing/gps_files/path.txt");
   if (!inFile) {
     std::cout << "unable to open path file" << std::endl;
   }
 
-  velFile.open("/home/robot/catkin_ws/src/testing/gps_files/sim_vel.txt");
+  velFile.open("/home/robot/catkin_ws/src/testing/gps_files/vel.txt");
   if (!velFile) {
     std::cout << "unable to open vel file" << std::endl;
   }
@@ -116,7 +117,7 @@ void TrackPoint::Task() {
     //update error
     angle_error = FindAngleError(des_northing, des_easting);
 
-    finished_turning_in_place = abs(angle_error*180/M_PI) < 8.0 ? true : false;
+    finished_turning_in_place = abs(angle_error*180.0/M_PI) < 8.0 ? true : false;
   }
   PublishSpeed(0.0, 0.0);
   finished_turning_in_place = false;
@@ -127,20 +128,51 @@ void TrackPoint::Task() {
     //update odometry
     UpdateOdom();
 
+    //update odom and costmap for the collision class
+    collisionObject->UpdateCallbacks();
     //if collision is detected let the local planner take over and wait for it to finish
-    // if(collisionObject->Task(sim_time, resolution)) {
-    //   printf("collision detected\n");
-    //   GOAL_X = des_northing - odom_x;
-    //   GOAL_Y = des_easting - odom_y;
-    //   ORIENTATION = getYaw(odom_quat);
+    if(collisionObject->Task(sim_time, resolution)) {
+      printf("collision detected\n");
+      GOAL_X = des_northing - odom_x;
+      GOAL_Y = des_easting - odom_y;
+      PATH_POINT = line_count - 1;
+      COLLISION_DETECTED = true;
+      PublishSpeed(0.0, 0.0);
 
-    //   COLLISION_DETECTED = true;
-    //   PublishSpeed(0.0, 0.0);
-    //   while(COLLISION_DETECTED) {
-    // 	ros::Duration(1.0).sleep();
-    //   }
-    //   UpdateOdom();
-    // }
+      while(COLLISION_DETECTED) {
+    	ros::Duration(1.0).sleep();
+      }
+      
+      UpdateOdom();
+
+      if(line_count < PATH_POINT - 1) {
+	std::getline(inFile, str_northing);
+	std::getline(inFile, str_easting);
+	std::getline(velFile, str_vel);
+	line_count += 1;
+	while(line_count < PATH_POINT - 1) {
+	  std::getline(inFile, str_northing);
+	  std::getline(inFile, str_easting);
+	  std::getline(velFile, str_vel);
+	  line_count += 1;
+	}
+           
+	northings.clear();
+	eastings.clear();
+	velocities.clear();
+	northings.push_back(strtof(str_northing.c_str(), &pEnd));
+	eastings.push_back(strtof(str_easting.c_str(), &pEnd));
+	velocities.push_back(strtof(str_vel.c_str(), &pEnd));
+	std::getline(inFile, str_northing);
+	std::getline(inFile, str_easting);
+	std::getline(velFile, str_vel);
+	northings.insert(northings.begin(), strtof(str_northing.c_str(), &pEnd));
+	eastings.insert(eastings.begin(), strtof(str_easting.c_str(), &pEnd));
+	velocities.push_back(strtof(str_vel.c_str(), &pEnd));
+
+	vector_size = 2;
+      }
+    }
 
     tracking_distance = FindLookAheadDistance(); // Find the look ahead distance
 
@@ -179,6 +211,7 @@ void TrackPoint::Task() {
 	  northings.insert(northings.begin(), strtof(str_northing.c_str(), &pEnd));
 	  eastings.insert(eastings.begin(), strtof(str_easting.c_str(), &pEnd));
 	  vector_size += 1;
+	  line_count += 1;
 	}
 	path_dist += sqrt(pow(eastings[vector_size - iterator] - eastings[vector_size - iterator + 1], 2)\
 			  + pow(northings[vector_size - iterator] - northings[vector_size - iterator + 1], 2));
@@ -244,7 +277,7 @@ void TrackPoint::Task() {
     	//update error
     	angle_error = FindAngleError(des_northing, des_easting);
 
-    	finished_turning_in_place = abs(angle_error*180/M_PI) < 8.0 ? true : false;
+    	finished_turning_in_place = abs(angle_error*180.0/M_PI) < 8.0 ? true : false;
       }
       PublishSpeed(0.0, 0.0);
     }
@@ -285,6 +318,7 @@ void TrackPoint::Task() {
 
   //tell the state controller you are done tracking
   printf("outside of track loop\n");
+  inFile.close();
   PublishSpeed(0.0, 0.0);
 }
 

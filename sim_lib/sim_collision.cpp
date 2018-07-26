@@ -7,7 +7,7 @@
  *
  */
 
-#include "collision.h"
+#include "sim_collision.h"
 
 
 /***********************************************************************
@@ -18,7 +18,7 @@
 Collision::Collision() {//: PeriodicTask() {
   received_map = false;
   received_odom = false;
-  odom_sub = nh.subscribe("local/odom", 1, &Collision::OdomCallback, this);
+  odom_sub = nh.subscribe("odom", 1, &Collision::OdomCallback, this);
   costmap_sub = nh.subscribe("costmap_node/costmap/costmap", 1, &Collision::CostmapCallback, this);
 
   costmap_pub = nh.advertise<nav_msgs::OccupancyGrid>("my_costmap", 1);
@@ -200,7 +200,7 @@ bool Collision::CostmapCheck(float _x_pos, float _y_pos, float _theta_pos) {
   //We transform to the odom frame
   for(int i = 0; i < vector_length; i++) {
     x_points_glob[i] = (x_pos + x_points[i]*cos(-theta_pos) - y_points[i]*sin(-theta_pos));
-    y_points_glob[i] = (y_pos - x_points[i]*sin(-theta_pos) - y_points[i]*cos(-theta_pos));
+    y_points_glob[i] = -(y_pos - x_points[i]*sin(-theta_pos) - y_points[i]*cos(-theta_pos));
   }
 
   //and now transform to cells on the costmap and check if filled

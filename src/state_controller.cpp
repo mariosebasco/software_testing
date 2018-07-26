@@ -46,21 +46,22 @@ int main(int argc, char **argv) {
       break;
       
     case TRACKING_GLOBAL:
-      // if(trackPointObject->COLLISION_DETECTED) {
-      // 	StateController::vehicle_state = TRACKING_LOCAL;
-      // 	dwaObject->GOAL_X = trackPointObject->GOAL_X;
-      // 	dwaObject->GOAL_Y = trackPointObject->GOAL_Y;
-      // 	dwaObject->ORIENTATION = trackPointObject->ORIENTATION;
-      // 	dwaObject->Init();
-      // }
-      // printf("tracking global path\n");
+      if(trackPointObject->COLLISION_DETECTED) {
+      	StateController::vehicle_state = TRACKING_LOCAL;
+      	dwaObject->GOAL_X = trackPointObject->GOAL_X;
+      	dwaObject->GOAL_Y = trackPointObject->GOAL_Y;
+	dwaObject->PATH_POINT = trackPointObject->PATH_POINT;
+      	dwaObject->Init();
+      }
+      printf("tracking global path\n");
       break;
       
     case TRACKING_LOCAL:
-      // if(dwaObject->REACHED_GOAL) {
-      // 	StateController::vehicle_state = TRACKING_GLOBAL;
-      // 	trackPointObject->COLLISION_DETECTED = false;
-      //}
+      if(dwaObject->REACHED_GOAL) {
+	trackPointObject->PATH_POINT = dwaObject->PATH_POINT;
+      	StateController::vehicle_state = TRACKING_GLOBAL;
+      	trackPointObject->COLLISION_DETECTED = false;
+      }
       printf("tracking global path\n");
       break;
       

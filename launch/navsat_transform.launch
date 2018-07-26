@@ -1,3 +1,4 @@
+<?xml version="1.0"?>
 <launch>
 
   <include file="$(find novatel_gps_driver)/launch/tester_for_usb.launch"/>

@@ -20,7 +20,7 @@
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/Pose.h>
 
-#include "collision.h"
+#include "sim_collision.h"
 #include "AperiodicTask.h"
 //#include "state_controller.h"
 
@@ -29,9 +29,10 @@ class TrackPoint: public AperiodicTask {
   
   //variables used by the state transition file
   bool COLLISION_DETECTED;
-  float GOAL_X, GOAL_Y, ORIENTATION;
+  float GOAL_X, GOAL_Y;//, ORIENTATION;
+  int PATH_POINT;
   
-  TrackPoint();
+  TrackPoint(Collision* _collisionObject);
   int Init();
   void Task();
   void PublishSpeed(float lin_vel, float ang_vel);
@@ -56,8 +57,8 @@ class TrackPoint: public AperiodicTask {
   //void turnInPlace(double theta_des);
   float FindLookAheadDistance();
   float FindCurrMaxVel(float _vel2, float _vel1, float _dist2, float _dist1);
-  //float FindDistToLine(double _x1, double _y1, double _x2, double _y2);
   double FindDistToSegment(double _x1, double _y1, double _x2, double _y2);
+  //float FindDistToLine(double _x1, double _y1, double _x2, double _y2);
   double WrapAngle(double angle);
 };
   

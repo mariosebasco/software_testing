@@ -1,4 +1,4 @@
-
+<?xml version="1.0"?>
 <launch>
 
   <!-- <arg name="use_controller" default="0" /> -->
@@ -36,11 +36,20 @@
   <!-- LiDAR-->
   <!-- <node name="urg_node" pkg="urg_node" type="urg_node" args="_ip_address:=192.168.0.10 _frame_id:=hokuyo_link _angle_min:=-1.5707963 _angle_max:=1.5707963"/> -->
   <include file="$(find lms1xx)/launch/LMS1xx.launch" />
-  
+  <node name="scan_narrow" pkg="testing" type="scan_narrow" />
+
   <!-- create costmap from laser scan -->
   <include file="$(find costmap_2d)/launch/example.launch" />
   
   <!-- add some extra tf frames -->
   <remap from="tf" to="tf_local" />
   <node name="tf_publisher" pkg="testing" type="tf_publisher"/>
+
+  <!-- Launch RADAR driver and nodes -->
+  <include file="$(find delphi_esr)/launch/delphi_esr.launch"/>
+  <node name="radar_exec" pkg="testing" type="radar_exec" output="screen"/>
+
+  <!-- launch ultrasonic sensors -->
+  <include file="$(find neobotix_usboard)/launch/neobotix_usboard.launch"/>
+  
 </launch>

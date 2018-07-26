@@ -107,7 +107,7 @@ add_library(nav_lib
   nav_lib/track.cpp
   nav_lib/collision.cpp
   nav_lib/video.cpp
-  nav_lib/transform_gps.cpp
+  # nav_lib/transform_gps.cpp
   nav_lib/dwa.cpp
   )
 
@@ -117,6 +117,9 @@ add_library(sim_lib
   sim_lib/ThreadTask.cpp
   sim_lib/AperiodicTask.cpp
   sim_lib/sim_track.cpp
+  sim_lib/sim_dwa.cpp
+  sim_lib/sim_collision.cpp
+  sim_lib/sim_video.cpp
   )
 
 #state controller for vehicle
@@ -173,11 +176,47 @@ add_dependencies(radar_exec
   )
 
 #testing with lidar
-add_executable(lidar_testing
-  src/lidar_testing.cpp
+# add_executable(lidar_testing
+#   src/lidar_testing.cpp
+#   )
+
+# target_link_libraries(lidar_testing
+#   ${catkin_LIBRARIES}
+#   )
+
+#make lidar beam narrow
+add_executable(scan_narrow
+  src/scan_narrow.cpp
   )
 
-target_link_libraries(lidar_testing
+target_link_libraries(scan_narrow
+  ${catkin_LIBRARIES}
+  )
+
+#tf publisher used for simulation tests
+add_executable(sim_tf_pub
+  src/sim_tf_pub.cpp
+  )
+
+target_link_libraries(sim_tf_pub
+  ${catkin_LIBRARIES}
+  )
+
+#change intenisities for simulation
+add_executable(sim_scan
+  src/sim_scan.cpp
+  )
+
+target_link_libraries(sim_scan
+  ${catkin_LIBRARIES}
+  )
+
+#exec for ultrasonics
+add_executable(ultrasonics
+  src/ultrasonics.cpp
+  )
+
+target_link_libraries(ultrasonics
   ${catkin_LIBRARIES}
   )
 

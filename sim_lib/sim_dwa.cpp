@@ -8,12 +8,12 @@
  */
 
 
-#include "dwa.h"
+#include "sim_dwa.h"
 
 DWA::DWA(Collision* _collisionObject) : AperiodicTask() {
   collisionObject = _collisionObject;
   
-  odom_sub = nh.subscribe("local/odom", 1, &DWA::OdomCallback, this);    
+  odom_sub = nh.subscribe("odom", 1, &DWA::OdomCallback, this);    
   vel_pub = nh.advertise<geometry_msgs::Twist>("cmd_vel", 1);
     
   received_odom = false;
@@ -22,7 +22,7 @@ DWA::DWA(Collision* _collisionObject) : AperiodicTask() {
   // GOAL_Y = 0.0;
   // ORIENTATION = 0.0;
 
-  MAX_TRANS_VEL = 0.40; //0.25m/s for testing
+  MAX_TRANS_VEL = 0.50; //0.25m/s for testing
   MAX_ROT_VEL = 40.0*M_PI / 180.0;//M_PI/4.0;
   MAX_TRANS_ACCELERATION = 0.5;
   MAX_ROT_ACCELERATION = 1.57;
@@ -47,8 +47,8 @@ void DWA::Task() {
     ros::spinOnce();
   }
   
-  GOAL_X = odom_msg.pose.pose.position.x + GOAL_X;
-  GOAL_Y = odom_msg.pose.pose.position.y + GOAL_Y;
+  // GOAL_X = odom_msg.pose.pose.position.x + GOAL_X;
+  // GOAL_Y = odom_msg.pose.pose.position.y + GOAL_Y;
     
   float orientation_cost, obstacle_cost, velocity_cost, path_cost, distance_cost;
   float alpha, beta, gamma, zeta;
@@ -68,7 +68,7 @@ void DWA::Task() {
   std::vector<double> northings, eastings;
   char *pEnd;
 
-  inFile.open("/home/robot/catkin_ws/src/testing/gps_files/path.txt");
+  inFile.open("/home/robot/catkin_ws/src/testing/gps_files/sim_path.txt");
   if (!inFile) {
     std::cout << "unable to open path file" << std::endl;
   }
@@ -172,6 +172,10 @@ void DWA::Task() {
     std::cout << "****************************" <<std::endl;
     std::cout << "****************************" <<std::endl;
     std::cout << "************MAX VALUES******" <<std::endl;
+    printf("GOAL X: %f\n", GOAL_X);
+    printf("GOAL Y: %f\n", GOAL_Y);
+    printf("odom_x: %f\n", odom_msg.pose.pose.position.x);
+    printf("odom_y: %f\n\n", odom_msg.pose.pose.position.y);
 
     printf("opt vel: %f\n", optimal_trans_vel);
     printf("opt rot: %f\n", optimal_rot_vel);
@@ -199,12 +203,14 @@ void DWA::Task() {
 
     //check to see if goal point is occupied
     if(collisionObject->CostmapCheckPoint(GOAL_X, GOAL_Y)) {
+      printf("THE GOAL POINT IS OCCUPIED\n");
       //if so move the goal point 2 meters down the path
       float dist_left, temp_dist;
       dist_left = sqrt(pow(GOAL_X - northings[0], 2) + pow(GOAL_Y - eastings[0], 2));
       temp_dist = 2.0;
-      if(dist_left < temp_dist) {
+      if (dist_left < temp_dist) {
 	while (dist_left < temp_dist) { //if necessary grab new coods from the path file
+	  printf("IN HERE\n");
 	  std::getline(inFile, str_northing);
 	  std::getline(inFile, str_easting);
 	  northings.insert(northings.begin(), strtof(str_northing.c_str(), &pEnd));
@@ -215,14 +221,24 @@ void DWA::Task() {
 
 	  temp_dist -= dist_left;
 	  dist_left = sqrt(pow(northings[0] - northings[1], 2) + pow(eastings[0] - eastings[1], 2));
+
+	  GOAL_X = northings[1] + temp_dist*(northings[0] - northings[1])/dist_left;
+	  GOAL_Y = eastings[1] + temp_dist*(eastings[0] - eastings[1])/dist_left;
 	}
-	GOAL_X = northings[1] + temp_dist*(northings[0] - northings[1])/dist_left;
-	GOAL_Y = eastings[1] + temp_dist*(eastings[0] - eastings[1])/dist_left;
       }
       else {
 	GOAL_X = GOAL_X + temp_dist*(northings[0] - northings[1])/dist_left;
 	GOAL_Y = GOAL_Y + temp_dist*(eastings[0] - eastings[1])/dist_left;
       }
+
+      printf("NORTHING 0: %f\n", northings[0]);
+      printf("EASTING 0: %f\n", eastings[0]);
+      printf("NORTHING 1: %f\n", northings[1]);
+      printf("EASTING 1: %f\n", eastings[1]);
+      
+      printf("NEW GOAL X: %f\n", GOAL_X);
+      printf("NEW GOAL Y: %f\n", GOAL_Y);
+      
     }
       
     ros::spinOnce();

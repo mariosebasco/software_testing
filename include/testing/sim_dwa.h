@@ -19,7 +19,7 @@
 #include "nav_msgs/Odometry.h"
 #include "geometry_msgs/Twist.h"
 
-#include "collision.h"
+#include "sim_collision.h"
 #include "AperiodicTask.h"
 
 class DWA : public AperiodicTask {

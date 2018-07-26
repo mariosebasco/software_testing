@@ -1,3 +1,4 @@
+<?xml version="1.0"?>
 <launch>
   <remap from="tf" to="tf_local" />
   <param name="robot_description"
