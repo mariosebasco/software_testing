@@ -37,8 +37,8 @@ int main(int argc, char *argv[]) {
 
   geometry_msgs::Twist cmd_vel;
   
-  std::cout << "Starting calibration..." << std::endl;
-    
+  ROS_INFO("Starting calibration");
+  
   //wait for odom data
   while(!should_start) {
     ros::spinOnce();
@@ -64,8 +64,8 @@ int main(int argc, char *argv[]) {
   double del_northing = final_northing - init_northing;
   double del_easting = final_easting - init_easting;
 
-  if(del_northing == 0 && del_easting == 0) {
-    std::cout << "Calibration failed" << std::endl;
+  if(fabs(del_northing) < 1 && fabs(del_easting) < 1) {
+    ROS_WARN("Calibration failed");
     return 0;
   }
 
@@ -73,10 +73,20 @@ int main(int argc, char *argv[]) {
   double theta_imu = getYaw(odom_quat);
 
   double imu_drift = - theta_imu + theta_gps;
-  std::cout << "imu drift: " << imu_drift << std::endl;
-  std::cout << "Calibration finished" << std::endl;
+  ROS_INFO("Imu_drift: %f", imu_drift);
+  ROS_INFO("Calibration finished");
 
   nh.setParam("/calibration_value", imu_drift);
+
+  cmd_vel.linear.x = -0.5;
+  cmd_vel.angular.z = 0.0;
+  vel_pub.publish(cmd_vel);
   
+  ros::Duration(10).sleep();
+
+  cmd_vel.linear.x = 0.0;
+  cmd_vel.angular.z = 0.0;
+  vel_pub.publish(cmd_vel);
+
   return 0;
 }

@@ -16,27 +16,23 @@
 #include <stdio.h>
 #include "vn100.h"
 #include <math.h>
+#include "testing/NovatelVelocity.h"
 
-const char* const COM_PORT = "/dev/ttyUSB0";
+const char* const COM_PORT = "/dev/ttyS0";
 const int BAUD_RATE = 115200;
+VnVector3 GPS_vel;
+bool should_start = false;
 
-// bool received_gps_data = false;
-// nav_msgs::Odometry gps_odom;
-// nav_msgs::Odometry prev_gps_odom;
-// int encoder1_count = 0;
-// int encoder2_count = 0;
-
-// void encoder_callback(testing::encoder_msg msg) {
-//   encoder1_count = msg.encoder1_count;
-//   encoder2_count = msg.encoder2_count;
-// }
-
-// void odom_callback(nav_msgs::Odometry msg) {
-//   if(!received_gps_data) {prev_gps_odom = msg;}
-
-//   received_gps_data = true;
-//   gps_odom = msg;
-// }
+void GpsVelCB(testing::NovatelVelocity msg) {
+  should_start = true;
+  
+  double hor_speed = msg.horizontal_speed;
+  double track_ground = msg.track_ground;
+  
+  GPS_vel.c0 = hor_speed*cos(track_ground*M_PI/180);
+  GPS_vel.c1 = hor_speed*sin(track_ground*M_PI/180);
+  GPS_vel.c2 = 0.0;
+}
 
 int main(int argc, char **argv)
 {
@@ -45,6 +41,7 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "imu_node");
 	
   ros::NodeHandle n;
+  ros::Subscriber gps_vel_sub = n.subscribe("bestvel", 1, GpsVelCB);
   ros::Publisher imu_pub = n.advertise<sensor_msgs::Imu>("imu_data", 1000);
   // ros::Subscriber odom_sub = n.subscribe("odom/gps_raw", 1, odom_callback);
   // ros::Subscriber encoder_sub = n.subscribe("encoder_counts", 1, encoder_callback);
@@ -68,7 +65,7 @@ int main(int argc, char **argv)
   
   char tmp_msg[50];
 
-  printf("connecting device\n");
+  ROS_INFO("connecting device\n");
   errorCode = vn100_connect(
 			    &vn100,
 			    COM_PORT,
@@ -77,24 +74,28 @@ int main(int argc, char **argv)
   /* Make sure the user has permission to use the COM port. */
   if (errorCode == VNERR_PERMISSION_DENIED) {
 
-    printf("Current user does not have permission to open the COM port.\n");
-    printf("Try running again using 'sudo'.\n");
+    ROS_WARN("Current user does not have permission to open the COM port.\n");
+    ROS_WARN("Try running again using 'sudo'.\n");
 
     return 0;
   }
   else if (errorCode != VNERR_NO_ERROR) {
-    printf("Error encountered when trying to connect to the sensor.\n");
+    ROS_WARN("Error encountered when trying to connect to the sensor.\n");
     
     return 0;
   }
-  printf("Connected\n");
+  ROS_INFO("Connected\n");
 
   //
   while (ros::ok())
   {
 
     ros::spinOnce();
-
+    if(!should_start) continue;
+    
+    errorCode = vn100_setVelocityCompenstationMeasurement(&vn100, GPS_vel, true);
+    if(errorCode != VNERR_NO_ERROR) ROS_INFO("Could not set vel compensation meas.\n");
+    
     errorCode = vn100_getQuaternion(&vn100, &quaternion);
     errorCode = vn100_getAcceleration(&vn100, &acceleration);
     errorCode = vn100_getAngularRate(&vn100, &angular_vel);
@@ -121,7 +122,7 @@ int main(int argc, char **argv)
     Imu_data.orientation.w = quaternion.w;
 
     n.getParam("/calibration_value", imu_drift);
-    printf("calibration value: %f\n", imu_drift);
+    //printf("calibration value: %f\n", imu_drift);
     if(imu_drift != 0.0) {
       //average orientation obtained from magnetometer and consecutive gps points
       // double del_northing = gps_odom.pose.pose.position.x - prev_gps_odom.pose.pose.position.x;
@@ -157,7 +158,7 @@ int main(int argc, char **argv)
       Imu_data.orientation.z = odom_quat[2];
       Imu_data.orientation.w = odom_quat[3];
       
-      printf("calibrated yaw: %f\n", getYaw(odom_quat));
+      //printf("calibrated yaw: %f\n", getYaw(odom_quat));
     }
 
     
@@ -190,7 +191,7 @@ int main(int argc, char **argv)
   errorCode = vn100_disconnect(&vn100);
 	
   if (errorCode != VNERR_NO_ERROR) {
-    printf("Error encountered when trying to disconnect from the sensor.\n");
+    ROS_WARN("Error encountered when trying to disconnect from the sensor.\n");
 		
     return 0;
   }

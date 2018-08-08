@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(testing)
 
-#add_compile_options(-std=c++11)
+add_compile_options(-std=c++11)
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
@@ -22,6 +22,10 @@ add_message_files(
   FILES
   encoder_msg.msg
   EsrTrack.msg
+  NovatelReceiverStatus.msg
+  NovatelMessageHeader.msg
+  NovatelVelocity.msg
+  Path_msg.msg
   )
 
 generate_messages(
@@ -47,6 +51,20 @@ include_directories(
   roboteQ/include
   utm_lib
 )
+
+
+#navigation library
+add_library(nav_lib
+  nav_lib/PeriodicTask.cpp
+  nav_lib/ThreadTask.cpp
+  nav_lib/AperiodicTask.cpp
+  nav_lib/track.cpp
+  nav_lib/collision.cpp
+  nav_lib/video.cpp
+  nav_lib/dwa.cpp
+  nav_lib/A_star.cpp
+  nav_lib/path.cpp
+  )
 
 #IMU
 add_executable(imu
@@ -77,6 +95,11 @@ target_link_libraries(ugv_control
   motor_control_library
   )
 
+add_dependencies(ugv_control
+  testing_generate_messages_cpp
+  )
+
+
 #encoder to odom
 add_executable(encoder_to_odom
   src/encoder_to_odom.cpp
@@ -99,17 +122,6 @@ target_link_libraries(tf_publisher
   ${catkin_LIBRARIES}
   )
 
-#navigation library
-add_library(nav_lib
-  nav_lib/PeriodicTask.cpp
-  nav_lib/ThreadTask.cpp
-  nav_lib/AperiodicTask.cpp
-  nav_lib/track.cpp
-  nav_lib/collision.cpp
-  nav_lib/video.cpp
-  # nav_lib/transform_gps.cpp
-  nav_lib/dwa.cpp
-  )
 
 #sim library
 add_library(sim_lib
@@ -133,14 +145,14 @@ target_link_libraries(state_controller
   )
 
 #state controller for simulation
-add_executable(sim_state_controller
-  src/sim_state_controller.cpp
-  )
+# add_executable(sim_state_controller
+#   src/sim_state_controller.cpp
+#   )
 
-target_link_libraries(sim_state_controller
-  ${catkin_LIBRARIES}
-  sim_lib
-  )
+# target_link_libraries(sim_state_controller
+#   ${catkin_LIBRARIES}
+#   sim_lib
+#   )
 
 #publish gps long and lat from received path
 add_executable(convert_gps

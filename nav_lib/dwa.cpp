@@ -13,11 +13,11 @@
 DWA::DWA(Collision* _collisionObject) : AperiodicTask() {
   collisionObject = _collisionObject;
   
-  odom_sub = nh.subscribe("local/odom", 1, &DWA::OdomCallback, this);    
+  odom_sub = nh.subscribe("local/odom", 1, &DWA::OdomCallback, this);
+  odom_sub_global = nh.subscribe("odom", 1, &DWA::OdomGlobalCB, this);
+  path_sub = nh.subscribe("vehicle_path", 1, &DWA::PathCB, this);
   vel_pub = nh.advertise<geometry_msgs::Twist>("cmd_vel", 1);
     
-  received_odom = false;
-  REACHED_GOAL = false;
   // GOAL_X = 4.0;
   // GOAL_Y = 0.0;
   // ORIENTATION = 0.0;
@@ -28,6 +28,7 @@ DWA::DWA(Collision* _collisionObject) : AperiodicTask() {
   MAX_ROT_ACCELERATION = 1.57;
   SIM_TIME = 3.0;
   RESOLUTION = 0.1;
+  MAX_DIST_FROM_PATH = 2.0; //don't deviate from path by more than 2 meters
   // nh.getParam("/max_trans_acceleration", max_trans_acceleration);
   // nh.getParam("/max_rot_acceleration", max_rot_acceleration);
   // nh.getParam("/sim_time_dwa", sim_time);
@@ -36,22 +37,26 @@ DWA::DWA(Collision* _collisionObject) : AperiodicTask() {
 }
 
 int DWA::Init() {
+  received_odom = false;
+  received_odom_global = false;
+  received_path = false;
+  received_a_star = false;
+  INTERRUPT = false;
+  
   return AperiodicTask::Init((char *) "localTrackTask", 50);
 }
 
 
 void DWA::Task() {
 
-  //make sure you've received odometry data
-  while(!received_odom) {
+  //make sure you've received odometry and path data
+  while(!received_odom && !received_path && !received_odom_global) {
     ros::spinOnce();
   }
-  
-  GOAL_X = odom_msg.pose.pose.position.x + GOAL_X;
-  GOAL_Y = odom_msg.pose.pose.position.y + GOAL_Y;
-    
-  float orientation_cost, obstacle_cost, velocity_cost, path_cost, distance_cost;
-  float alpha, beta, gamma, zeta;
+
+  float goal_x, goal_y, curr_x, curr_y;
+  float orientation_cost, obstacle_cost, velocity_cost, path_cost, distance_cost, a_star_cost;
+  float alpha, beta, gamma, delta, zeta;
   float optimal_trans_vel, optimal_rot_vel;
   float max_path_cost = 0.0;
 
@@ -62,34 +67,16 @@ void DWA::Task() {
   
   VelocityStruct velocity_struct;
   float opt_obstacle, opt_orientation, opt_vel, opt_distance, dist_to_goal;
-  int backup_count = 0;
-  std::ifstream inFile;
-  std::string str_northing, str_easting;
-  std::vector<double> northings, eastings;
-  char *pEnd;
-
-  inFile.open("/home/robot/catkin_ws/src/testing/gps_files/path.txt");
-  if (!inFile) {
-    std::cout << "unable to open path file" << std::endl;
-  }
-
-  //get the path point thevehicle is currently in
-  for (int i = 0; i < PATH_POINT; i++) {
-    std::getline(inFile, str_northing);
-    std::getline(inFile, str_easting);
-  }
-  northings.push_back(strtof(str_northing.c_str(), &pEnd));
-  eastings.push_back(strtof(str_easting.c_str(), &pEnd));
-
-  std::getline(inFile, str_northing);
-  std::getline(inFile, str_easting);
-  northings.insert(northings.begin(), strtof(str_northing.c_str(), &pEnd));
-  eastings.insert(eastings.begin(), strtof(str_easting.c_str(), &pEnd));
-  PATH_POINT += 1;
   
   ros::Rate loop_rate(10.0);
     
-  while(ros::ok()) {
+  while(ros::ok() && !INTERRUPT) {
+
+    curr_x = odom_msg.pose.pose.position.x;
+    curr_y = odom_msg.pose.pose.position.y;
+    goal_x = path_msg.des_northing - odom_msg_global.pose.pose.position.x + curr_x;
+    goal_y = path_msg.des_easting - odom_msg_global.pose.pose.position.y + curr_y;
+    if(path_msg.reached_end) break;
     
     //find the set of possible velocities (Dynamic Window)
     float curr_vel = odom_msg.twist.twist.linear.x;
@@ -104,15 +91,25 @@ void DWA::Task() {
     if(rot_upper_limit > MAX_ROT_VEL) rot_upper_limit = MAX_ROT_VEL;
     if(rot_lower_limit < -MAX_ROT_VEL) rot_lower_limit = -MAX_ROT_VEL;
 
-    float curr_x = odom_msg.pose.pose.position.x;
-    float curr_y = odom_msg.pose.pose.position.y;
-    float curr_dist_to_goal = sqrt(pow((curr_x - GOAL_X), 2) + pow((curr_y - GOAL_Y), 2));
+    float curr_dist_to_goal = sqrt(pow((curr_x - goal_x), 2) + pow((curr_y - goal_y), 2));
     
     float num_trans_iterations = int((vel_upper_limit - vel_lower_limit)/RESOLUTION);
     float num_rot_iterations = int((rot_upper_limit - rot_lower_limit)/RESOLUTION);
 
     float temp_trans_vel = 0.0;
     float temp_rot_vel = 0.0;
+
+    double x1 = path_msg.northing1;
+    double y1 = path_msg.easting1;
+    double x2 = path_msg.northing1;
+    double y2 = path_msg.easting1;
+    
+    float dist_from_path = FindDistFromPath(x1, y1, x2, y2);
+    if(dist_from_path > MAX_DIST_FROM_PATH) {
+      PublishVel(0.0, 0.0);
+      ROS_WARN("STOPPING -- REACHED MAX DISTANCE FROM PATH\n");
+      return;
+    }
     
     //update odom and costmap for the collision class
     collisionObject->UpdateCallbacks();
@@ -128,13 +125,18 @@ void DWA::Task() {
 
     	obstacle_cost = FindObstacleCost(velocity_struct);
     	if(obstacle_cost == 0.0) {continue;}
-    	orientation_cost = FindOrientationCost(velocity_struct, GOAL_X, GOAL_Y, dist_to_goal);
+    	orientation_cost = FindOrientationCost(velocity_struct, goal_x, goal_y, dist_to_goal);
 	if(orientation_cost == 0.0) {continue;}
     	velocity_cost = FindVelocityCost(velocity_struct);
 	if(dist_to_goal > curr_dist_to_goal) distance_cost = 0.0;
 	else distance_cost = (curr_dist_to_goal - dist_to_goal);
-	  
-    	path_cost = alpha*orientation_cost + beta*obstacle_cost + gamma*velocity_cost + zeta*distance_cost;
+	if(received_a_star) a_star_cost = FindPathCost(velocity_struct);
+	else a_star_cost = 0.0;
+    	path_cost = alpha*orientation_cost\
+	  + beta*obstacle_cost\
+	  + gamma*velocity_cost\
+	  + delta*a_star_cost\
+	  + zeta*distance_cost;
 
 	//**********************************************************************
 	// TESTING
@@ -169,65 +171,17 @@ void DWA::Task() {
     }
 
     PublishVel(optimal_trans_vel, optimal_rot_vel);
-    std::cout << "****************************" <<std::endl;
-    std::cout << "****************************" <<std::endl;
-    std::cout << "************MAX VALUES******" <<std::endl;
-
-    printf("opt vel: %f\n", optimal_trans_vel);
-    printf("opt rot: %f\n", optimal_rot_vel);
     
-    printf("orientation cost: %f\n", opt_orientation);
-    printf("obstable cost: %f\n", opt_obstacle);
-    printf("velocity cost: %f\n", opt_vel);
-    printf("distance cost: %f\n", opt_distance);
-    
-    std::cout << "****************************" <<std::endl;
-    std::cout << "****************************" <<std::endl << std::endl;
-
     max_path_cost = 0.0;
     optimal_trans_vel = 0.0;
     optimal_rot_vel = 0.0;
-    
-    if(ReachedGoal(GOAL_X, GOAL_Y)) {
-      PublishVel(0.0, 0.0);
-      printf("REACHED GOAL\n");
-      FacePath(northings[0], eastings[0]);
-      inFile.close();
-      REACHED_GOAL = true;
-      break;
-    }
-
-    //check to see if goal point is occupied
-    if(collisionObject->CostmapCheckPoint(GOAL_X, GOAL_Y)) {
-      //if so move the goal point 2 meters down the path
-      float dist_left, temp_dist;
-      dist_left = sqrt(pow(GOAL_X - northings[0], 2) + pow(GOAL_Y - eastings[0], 2));
-      temp_dist = 2.0;
-      if(dist_left < temp_dist) {
-	while (dist_left < temp_dist) { //if necessary grab new coods from the path file
-	  std::getline(inFile, str_northing);
-	  std::getline(inFile, str_easting);
-	  northings.insert(northings.begin(), strtof(str_northing.c_str(), &pEnd));
-	  eastings.insert(eastings.begin(), strtof(str_easting.c_str(), &pEnd));
-	  northings.pop_back();
-	  eastings.pop_back();
-	  PATH_POINT += 1;
-
-	  temp_dist -= dist_left;
-	  dist_left = sqrt(pow(northings[0] - northings[1], 2) + pow(eastings[0] - eastings[1], 2));
-	}
-	GOAL_X = northings[1] + temp_dist*(northings[0] - northings[1])/dist_left;
-	GOAL_Y = eastings[1] + temp_dist*(eastings[0] - eastings[1])/dist_left;
-      }
-      else {
-	GOAL_X = GOAL_X + temp_dist*(northings[0] - northings[1])/dist_left;
-	GOAL_Y = GOAL_Y + temp_dist*(eastings[0] - eastings[1])/dist_left;
-      }
-    }
-      
+          
     ros::spinOnce();
     loop_rate.sleep();
   }
+
+  //if out here you've reached goal
+  PublishVel(0.0,0.0);
 }
 
 
@@ -340,6 +294,38 @@ float DWA::FindVelocityCost(VelocityStruct _velocity_struct) {
   return cost;
 }
 
+float DWA::FindPathCost(VelocityStruct _velocity_struct) {
+  
+  
+  return 0.0;
+}
+
+
+/************************************************************************
+ *                   CHECK CURRENT DISTANCE FROM PATH                   *
+ *                                                                      *
+ *                                                                      *
+ *                                                                      *          
+ ***********************************************************************/
+float DWA::FindDistFromPath(float _x1, float _y1, float _x2, float _y2) {
+  float x1, x2, y1, y2, a, b, c, dist;
+  float odom_x = odom_msg.pose.pose.position.x;
+  float odom_y = odom_msg.pose.pose.position.y;
+
+  x1 = _x1;
+  y1 = _y1;
+  x2 = _x2;
+  y2 = _y2;
+  
+  a = (y2 - y1); // line between these two markers
+  b = -(x2 - x1);
+  c = x2*y1 - x1*y2;
+
+  dist = fabs(a*odom_x + b*odom_y + c)/sqrt(pow(a, 2) + pow(b, 2));
+  return dist;
+}
+
+
 /************************************************************************
  *                        ODOM CALLBACK                                 *
  *                                                                      *
@@ -350,6 +336,41 @@ void DWA::OdomCallback(nav_msgs::Odometry msg) {
   odom_msg = msg;
   odom_quat = tf::Quaternion(0.0, 0.0, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w);
   received_odom = true;
+}
+
+/************************************************************************
+ *                 GLOBAL ODOM CALLBACK                                 *
+ *                                                                      *
+ *                                                                      *
+ *                                                                      *          
+ ***********************************************************************/
+void DWA::OdomGlobalCB(nav_msgs::Odometry msg) {
+  odom_msg_global = msg;
+  received_odom_global = true;
+}
+
+
+/************************************************************************
+ *                        PATH CALLBACK                                 *
+ *                                                                      *
+ *                                                                      *
+ *                                                                      *          
+ ***********************************************************************/
+void DWA::PathCB(testing::Path_msg msg) {
+  path_msg = msg;
+  received_path = true;
+}
+
+
+/************************************************************************
+ *                             A STAR CALLBACK                          *
+ *                                                                      *
+ *                                                                      *
+ *                                                                      *          
+ ***********************************************************************/
+void DWA::AStarCB(nav_msgs::Path msg) {
+  received_a_star = true;
+  a_star_path = msg;
 }
 
 /************************************************************************
@@ -364,66 +385,3 @@ void DWA::PublishVel(float trans_vel, float rot_vel) {
   cmd_vel.angular.z = rot_vel;
   vel_pub.publish(cmd_vel);
 }
-
-
-/************************************************************************
- *                        CHECK IF REACHED GOAL                         *
- *                                                                      *
- *                                                                      *
- *                                                                      *          
- ***********************************************************************/
-bool DWA::ReachedGoal(float _goal_x, float _goal_y) {
-  
-  float threshold, goal_x, goal_y, dist_to_goal;
-  float curr_x, curr_y;
-  
-  goal_x = _goal_x;
-  goal_y = _goal_y;
-  threshold = 0.4; //stop when theshold from goal
-  curr_x = odom_msg.pose.pose.position.x;
-  curr_y = odom_msg.pose.pose.position.y;
-  
-  dist_to_goal = sqrt(pow((curr_x - goal_x), 2) + pow((curr_y - goal_y), 2));
-
-  if(dist_to_goal <= threshold) return true;
-  return false;
-}
-
-
-/************************************************************************
- *                   FACE THE PATH WHEN REACHED GOAL                    *
- *                                                                      *
- *                                                                      *
- *                                                                      *          
- ***********************************************************************/
-void DWA::FacePath(float x_des, float y_des) {
-  float theta_des, theta_curr;
-  float angle_error, ang_vel;
-  
-  while(true) {
-    float odom_x = odom_msg.pose.pose.position.x;
-    float odom_y = odom_msg.pose.pose.position.y;
-    theta_des = atan2((y_des - odom_y), (x_des - odom_x));
-    theta_des = theta_des < 0 ? (2*M_PI + theta_des) : theta_des;
-    theta_curr = getYaw(odom_quat);
-    theta_curr = theta_curr < 0 ? (2*M_PI + theta_curr) : theta_curr;
-    
-    angle_error = theta_des - theta_curr;
-    angle_error = angle_error > M_PI ? (angle_error - 2*M_PI) : angle_error;
-    angle_error = angle_error < -M_PI ? (angle_error + 2*M_PI) : angle_error;
-
-    ang_vel = angle_error;
-    if(ang_vel > 0.5) ang_vel = 0.5;
-    if(ang_vel < -0.5) ang_vel = -0.5;
-    
-    PublishVel(0.0, ang_vel);
-    
-    if(fabs(angle_error) < (10.0*M_PI/180.0)) {
-      PublishVel(0.0, 0.0);
-      return;
-    }
-    
-    ros::spinOnce();
-  }
-}
-

@@ -46,10 +46,10 @@
   <node name="tf_publisher" pkg="testing" type="tf_publisher"/>
 
   <!-- Launch RADAR driver and nodes -->
-  <include file="$(find delphi_esr)/launch/delphi_esr.launch"/>
-  <node name="radar_exec" pkg="testing" type="radar_exec" output="screen"/>
+  <!-- <include file="$(find delphi_esr)/launch/delphi_esr.launch"/> -->
+  <!-- <node name="radar_exec" pkg="testing" type="radar_exec" output="screen"/> -->
 
   <!-- launch ultrasonic sensors -->
-  <include file="$(find neobotix_usboard)/launch/neobotix_usboard.launch"/>
+  <!-- <include file="$(find neobotix_usboard)/launch/neobotix_usboard.launch"/> -->
   
 </launch>

@@ -1,0 +1,7 @@
+event: 1
+marker id: 2
+latitude: 42.0490696397
+longitude: -87.6984907669
+duration: 1
+orientation: 1
+move: 1

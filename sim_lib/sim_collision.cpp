@@ -70,7 +70,6 @@ bool Collision::Task(float _move_time, float _resolution) {
   while(!received_map && !received_odom) {
     UpdateCallbacks();
   }
-  
   move_time = _move_time;
   resolution = _resolution;
   trans_vel = odom_msg.twist.twist.linear.x;
@@ -172,7 +171,7 @@ bool Collision::CostmapCheck(float _x_pos, float _y_pos, float _theta_pos) {
   //First we need a list of all the x, y points we are concerned with in checking for collision
   //we are going to take points every 5cm along the body in the local frame and convert it to the global frame
   //then we'll see if those points are occupied in the grid
-
+  
   int grid_cell, grid_cell_y, grid_cell_x,  cell_value, map_height;
   double origin_x, origin_y;
   float map_resolution, x_pos, y_pos, theta_pos;
@@ -200,7 +199,7 @@ bool Collision::CostmapCheck(float _x_pos, float _y_pos, float _theta_pos) {
   //We transform to the odom frame
   for(int i = 0; i < vector_length; i++) {
     x_points_glob[i] = (x_pos + x_points[i]*cos(-theta_pos) - y_points[i]*sin(-theta_pos));
-    y_points_glob[i] = -(y_pos - x_points[i]*sin(-theta_pos) - y_points[i]*cos(-theta_pos));
+    y_points_glob[i] = (y_pos - x_points[i]*sin(-theta_pos) - y_points[i]*cos(-theta_pos));
   }
 
   //and now transform to cells on the costmap and check if filled
@@ -209,9 +208,11 @@ bool Collision::CostmapCheck(float _x_pos, float _y_pos, float _theta_pos) {
     grid_cell_x = int(fabs(origin_x - x_points_glob[i])/map_resolution); 
     grid_cell= grid_cell_y + grid_cell_x;
     //std::cout << "grid cell " << grid_cell << std::endl;
-
+    //printf("resolution: %f\n", map_resolution);
+    
     cell_value = costmap.data[grid_cell];
     myCostmap.data[grid_cell] = 100;
+
 
     if(cell_value > 0) {
       return true;

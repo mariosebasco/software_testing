@@ -130,6 +130,7 @@ void TrackPoint::Task() {
 
     //update odom and costmap for the collision class
     collisionObject->UpdateCallbacks();
+    
     //if collision is detected let the local planner take over and wait for it to finish
     if(collisionObject->Task(sim_time, resolution)) {
       printf("collision detected\n");
@@ -146,31 +147,31 @@ void TrackPoint::Task() {
       UpdateOdom();
 
       if(line_count < PATH_POINT - 1) {
-	std::getline(inFile, str_northing);
-	std::getline(inFile, str_easting);
-	std::getline(velFile, str_vel);
-	line_count += 1;
-	while(line_count < PATH_POINT - 1) {
-	  std::getline(inFile, str_northing);
-	  std::getline(inFile, str_easting);
-	  std::getline(velFile, str_vel);
-	  line_count += 1;
-	}
+    	std::getline(inFile, str_northing);
+    	std::getline(inFile, str_easting);
+    	std::getline(velFile, str_vel);
+    	line_count += 1;
+    	while(line_count < PATH_POINT - 1) {
+    	  std::getline(inFile, str_northing);
+    	  std::getline(inFile, str_easting);
+    	  std::getline(velFile, str_vel);
+    	  line_count += 1;
+    	}
            
-	northings.clear();
-	eastings.clear();
-	velocities.clear();
-	northings.push_back(strtof(str_northing.c_str(), &pEnd));
-	eastings.push_back(strtof(str_easting.c_str(), &pEnd));
-	velocities.push_back(strtof(str_vel.c_str(), &pEnd));
-	std::getline(inFile, str_northing);
-	std::getline(inFile, str_easting);
-	std::getline(velFile, str_vel);
-	northings.insert(northings.begin(), strtof(str_northing.c_str(), &pEnd));
-	eastings.insert(eastings.begin(), strtof(str_easting.c_str(), &pEnd));
-	velocities.push_back(strtof(str_vel.c_str(), &pEnd));
+    	northings.clear();
+    	eastings.clear();
+    	velocities.clear();
+    	northings.push_back(strtof(str_northing.c_str(), &pEnd));
+    	eastings.push_back(strtof(str_easting.c_str(), &pEnd));
+    	velocities.push_back(strtof(str_vel.c_str(), &pEnd));
+    	std::getline(inFile, str_northing);
+    	std::getline(inFile, str_easting);
+    	std::getline(velFile, str_vel);
+    	northings.insert(northings.begin(), strtof(str_northing.c_str(), &pEnd));
+    	eastings.insert(eastings.begin(), strtof(str_easting.c_str(), &pEnd));
+    	velocities.push_back(strtof(str_vel.c_str(), &pEnd));
 
-	vector_size = 2;
+    	vector_size = 2;
       }
     }
 
@@ -236,7 +237,7 @@ void TrackPoint::Task() {
     curr_max_vel = FindCurrMaxVel(velocities[1], velocities[0], dist2, dist1); 
     angle_error = FindAngleError(des_northing, des_easting);
     point_dist = FindPositionError(des_northing, des_easting);
-    
+
     //Update which line you are on
     if(vector_size > 2) {
       float dist_to_segment1 = FindDistToSegment(northings[vector_size - 2], eastings[vector_size - 2], northings[vector_size - 1], eastings[vector_size - 1]);

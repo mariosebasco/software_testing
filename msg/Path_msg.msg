@@ -1,0 +1,11 @@
+float64 northing1
+float64 easting1
+float64 northing2
+float64 easting2
+float64 des_northing
+float64 des_easting
+float32 max_vel
+bool reached_end
+bool event_point
+int32 event_duration
+int32 event_id

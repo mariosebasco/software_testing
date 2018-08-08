@@ -11,12 +11,15 @@
 #include "ros/ros.h"
 #include "geometry_msgs/Twist.h"
 #include "sensor_msgs/Joy.h"
+#include "rosgraph_msgs/Log.h"
 
 #include "RoboteqDevice.h"
 #include "ErrorCodes.h"
 #include "Constants.h"
 
 #include "testing/encoder_msg.h"
+
+bool CONTROLLER_CONNECTED = true;
 
 class RoboteqDriver {
 public:
@@ -26,7 +29,6 @@ public:
   int RPM;
   bool use_controller, should_start;
   int KP, KI;
-
 
   /***********************************************************************
    *                                                                     *
@@ -170,8 +172,25 @@ public:
     
     joy_sub = nh.subscribe("joy", 1, &RoboteqDriver::controllerCb, this);
     vel_sub = nh.subscribe("cmd_vel", 1, &RoboteqDriver::velocityCb, this);
+    rosout_sub = nh.subscribe("rosout_agg", 1, &RoboteqDriver::rosoutCB, this);
   }
 
+  /***********************************************************************
+   *                                                                     *
+   *                      ROSOUT MESSAGES                                *
+   *         CHECK IF CONTROLLER HAS BEEN DISCONNECTED                   *
+   *                                                                     *
+   *********************************************************************/
+  void rosoutCB(rosgraph_msgs::Log msg) {
+    if(msg.name == "/joy_node") {
+      if(msg.function == "main" && (msg.line == 174 || msg.line == 316)) {
+	CONTROLLER_CONNECTED = false;
+      }
+      else if(msg.function == "main" && msg.line == 181) {
+	CONTROLLER_CONNECTED = true;
+      }
+    }
+  }
 
   /***********************************************************************
    *                                                                     *
@@ -234,7 +253,7 @@ public:
       std::cout<<"failed --> "<<status<<std::endl;
     }
     if (batt_volts < 240) {
-      ROS_INFO("WARNING: battery below 24V");
+      ROS_WARN("WARNING: battery below 24V");
     }
     return batt_volts;
   }
@@ -271,6 +290,8 @@ private:
   ros::Publisher encoder_pub;
   ros::Subscriber joy_sub;
   ros::Subscriber vel_sub;
+  ros::Subscriber rosout_sub;
+  
   testing::encoder_msg encoderCount;
   int status;
 
@@ -312,6 +333,7 @@ int main(int argc, char *argv[]) {
 
   ros::Rate loop_rate(10);
   while(ros::ok()) {
+    ros::spinOnce();
 
     //get *relative* encoder readings
     encoder1_count = -roboteq_object.readEncoder(1);
@@ -321,6 +343,12 @@ int main(int argc, char *argv[]) {
     roboteq_object.pub_encoder(encoder1_count, encoder2_count);
 
     if(roboteq_object.should_start) {
+      if(!CONTROLLER_CONNECTED) {
+	roboteq_object.setVelocity(1,0);
+	roboteq_object.setVelocity(2,0);
+	continue;
+      }
+      
       //calculate speeds
       if (roboteq_object.use_controller) { //convert joystick input into velocity
 	vel_motor1 = -int((roboteq_object.controller_state.axes[1]*linear_gain - roboteq_object.controller_state.axes[3]*angular_gain)*1000.0);
@@ -352,7 +380,6 @@ int main(int argc, char *argv[]) {
     }
     batt_volts = roboteq_object.battVoltStatus();
 
-    ros::spinOnce();
     loop_rate.sleep();
 
   }
