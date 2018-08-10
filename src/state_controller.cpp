@@ -18,7 +18,7 @@ VehicleState StateController::vehicle_state = IDLE;
 testing::Path_msg path_msg;
 bool received_path = false;
 
-void PathCB(testing::Path_msg msg);
+void PathCB(const testing::Path_msg &msg);
 
 
 /***********************************************************************
@@ -46,81 +46,75 @@ int main(int argc, char **argv) {
   resolution = 0.25; //seconds
 
   pathObject->Init();
-  
-  // dwaObject->GOAL_X = 1.0;
-  // dwaObject->GOAL_Y = 0.0;
   //dwaObject->Init();
-
-  // aStarObject->GOAL_X_LOCAL = 1.0;
-  // aStarObject->GOAL_Y_LOCAL = 0.0;
-  // aStarObject->Init();
+  aStarObject->Init();
   
   ros::Rate loop_rate(10);
-  //while(ros::ok()) {loop_rate.sleep();}
-  while(ros::ok()) {
-    while(!received_path) {
-      ros::spinOnce();
-    }
+  while(ros::ok()) {loop_rate.sleep();}
+  // while(ros::ok()) {
+  //   while(!received_path) {
+  //     ros::spinOnce();
+  //   }
     
-    switch(StateController::vehicle_state) {
-    case IDLE:
-      StateController::vehicle_state = TRACKING_GLOBAL;
-      trackPointObject->Init();
-      break;
+  //   switch(StateController::vehicle_state) {
+  //   case IDLE:
+  //     StateController::vehicle_state = TRACKING_GLOBAL;
+  //     trackPointObject->Init();
+  //     break;
       
-    case TRACKING_GLOBAL:
-      collisionObject->UpdateCallbacks();
-      if(collisionObject->Task(sim_time, resolution)) {
-	trackPointObject->INTERRUPT = true;
-	StateController::vehicle_state = TRACKING_LOCAL;
-      	dwaObject->Init();
-	aStarObject->Init();
-      }
-      if(path_msg.event_point) {
-	trackPointObject->INTERRUPT = true;
-	StateController::vehicle_state = RECORDING_VIDEO;
-	videoObject->Init(path_msg.event_duration, path_msg.event_id);
-      }
-      if(path_msg.reached_end) StateController::vehicle_state = FINISHED;
-      ROS_INFO("tracking global path\n");
-      break;
+  //   case TRACKING_GLOBAL:
+  //     collisionObject->UpdateCallbacks();
+  //     if(collisionObject->Task(sim_time, resolution)) {
+  // 	trackPointObject->INTERRUPT = true;
+  // 	StateController::vehicle_state = TRACKING_LOCAL;
+  //     	dwaObject->Init();
+  // 	aStarObject->Init();
+  //     }
+  //     if(path_msg.event_point) {
+  // 	trackPointObject->INTERRUPT = true;
+  // 	StateController::vehicle_state = RECORDING_VIDEO;
+  // 	videoObject->Init(path_msg.event_duration, path_msg.event_id);
+  //     }
+  //     if(path_msg.reached_end) StateController::vehicle_state = FINISHED;
+  //     ROS_INFO("tracking global path\n");
+  //     break;
       
-    case TRACKING_LOCAL:
-      if(dwaObject->REACHED_GOAL) {
-	aStarObject->INTERRUPT = true;
-	dwaObject->INTERRUPT = true;
-      	StateController::vehicle_state = TRACKING_GLOBAL;
-	trackPointObject->Init();
-      }
-      if(path_msg.event_point) {
-	aStarObject->INTERRUPT = true;
-	dwaObject->INTERRUPT = true;
-	StateController::vehicle_state = RECORDING_VIDEO;
-	videoObject->Init(path_msg.event_duration, path_msg.event_id);
-      }
-      if(path_msg.reached_end) StateController::vehicle_state = FINISHED;
-      ROS_INFO("tracking local path\n");
-      break;
+  //   case TRACKING_LOCAL:
+  //     if(dwaObject->REACHED_GOAL) {
+  // 	aStarObject->INTERRUPT = true;
+  // 	dwaObject->INTERRUPT = true;
+  //     	StateController::vehicle_state = TRACKING_GLOBAL;
+  // 	trackPointObject->Init();
+  //     }
+  //     if(path_msg.event_point) {
+  // 	aStarObject->INTERRUPT = true;
+  // 	dwaObject->INTERRUPT = true;
+  // 	StateController::vehicle_state = RECORDING_VIDEO;
+  // 	videoObject->Init(path_msg.event_duration, path_msg.event_id);
+  //     }
+  //     if(path_msg.reached_end) StateController::vehicle_state = FINISHED;
+  //     ROS_INFO("tracking local path\n");
+  //     break;
       
-    case RECORDING_VIDEO:
-      ROS_INFO("taking video\n");
-      break;
+  //   case RECORDING_VIDEO:
+  //     ROS_INFO("taking video\n");
+  //     break;
       
-    case FAULT:
-      ROS_INFO("fault state\n");
-      break;
+  //   case FAULT:
+  //     ROS_INFO("fault state\n");
+  //     break;
       
-    case FINISHED:
-      ROS_INFO("finished everything\n");
-      return 0;
+  //   case FINISHED:
+  //     ROS_INFO("finished everything\n");
+  //     return 0;
       
-    default:
-      break;
-    }
+  //   default:
+  //     break;
+  //   }
 
-    ros::spinOnce();
-    loop_rate.sleep();
-  }
+  //   ros::spinOnce();
+  //   loop_rate.sleep();
+  // }
   
   //take a video for 10 seconds
   // videoObject->Init(10, 2);
@@ -143,7 +137,7 @@ int main(int argc, char **argv) {
 }
 
 	   
-void PathCB(testing::Path_msg msg) {
+void PathCB(const testing::Path_msg &msg) {
   path_msg = msg;
   received_path = true;
 }

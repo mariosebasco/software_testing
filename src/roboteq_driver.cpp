@@ -181,7 +181,7 @@ public:
    *         CHECK IF CONTROLLER HAS BEEN DISCONNECTED                   *
    *                                                                     *
    *********************************************************************/
-  void rosoutCB(rosgraph_msgs::Log msg) {
+  void rosoutCB(const rosgraph_msgs::Log &msg) {
     if(msg.name == "/joy_node") {
       if(msg.function == "main" && (msg.line == 174 || msg.line == 316)) {
 	CONTROLLER_CONNECTED = false;
@@ -197,7 +197,7 @@ public:
    *                      VELOCITY CALLBACK                              *
    *                                                                     *
    *********************************************************************/
-  void velocityCb(geometry_msgs::Twist msg) {
+  void velocityCb(const geometry_msgs::Twist &msg) {
     if(!use_controller) {
       should_start = true;
     }
@@ -209,7 +209,7 @@ public:
    *                      CONTROLLER CALLBACK                            *
    *                                                                     *
    *********************************************************************/
-  void controllerCb(sensor_msgs::Joy msg) {
+  void controllerCb(const sensor_msgs::Joy &msg) {
     if(use_controller) {
       should_start = true;
     }

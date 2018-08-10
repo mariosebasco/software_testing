@@ -37,8 +37,8 @@ class Collision {
   ros::NodeHandle nh;
   ros::Subscriber odom_sub;
   ros::Subscriber costmap_sub;
-  nav_msgs::Odometry odom_msg;
   tf::Quaternion odom_quat;
+  nav_msgs::Odometry odom_msg;
   nav_msgs::OccupancyGrid costmap;
   nav_msgs::OccupancyGrid myCostmap;
 
@@ -46,8 +46,8 @@ class Collision {
   
   bool PropagateState(float _move_time, float _resolution, float _trans_vel, float _rot_vel, float &time_to_impact);
   bool CostmapCheck(float _x_pos, float _y_pos, float _theta_pos);
-  void OdomCallback(nav_msgs::Odometry msg);
-  void CostmapCallback(nav_msgs::OccupancyGrid msg);
+  void OdomCallback(const nav_msgs::Odometry &msg);
+  void CostmapCallback(const nav_msgs::OccupancyGrid &msg);
   
   inline double WrapAngle(double angle);
 };

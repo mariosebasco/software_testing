@@ -28,8 +28,8 @@ nav_msgs::Odometry odom;
 
 float WrapAngle(float angle);
 bool CheckIntersection(float _x_init, float _y_init, float _theta_init, float _x, float _y, float _theta, int _sonar_id, float _range);
-void OdomCB(nav_msgs::Odometry msg);
-void SonarCB(sensor_msgs::Range msg);
+void OdomCB(const nav_msgs::Odometry &msg);
+void SonarCB(const sensor_msgs::Range &msg);
 
 
 /************************************************************************************************
@@ -71,7 +71,7 @@ int main(int argc, char* argv[]) {
  *                                                                                              *
  *                                                                                              *
  ***********************************************************************************************/
-void OdomCB(nav_msgs::Odometry msg) {
+void OdomCB(const nav_msgs::Odometry &msg) {
   should_start = true;
   odom = msg;
   odom_quat = tf::Quaternion(0.0, 0.0, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w);
@@ -85,7 +85,7 @@ void OdomCB(nav_msgs::Odometry msg) {
  *                                                                                              *
  *                                                                                              *
  ***********************************************************************************************/
-void SonarCB(sensor_msgs::Range msg) {
+void SonarCB(const sensor_msgs::Range &msg) {
   if(!should_start) return;
 
   if(msg.range > 1.2) return;

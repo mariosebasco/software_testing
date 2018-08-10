@@ -61,10 +61,10 @@ class DWA : public AperiodicTask {
   float FindObstacleCost(VelocityStruct _velocity_struct);
   float FindVelocityCost(VelocityStruct _velocity_struct);
   float FindPathCost(VelocityStruct _velocity_struct);
-  void OdomCallback(nav_msgs::Odometry msg);
-  void OdomGlobalCB(nav_msgs::Odometry msg);
-  void AStarCB(nav_msgs::Path msg);
-  void PathCB(testing::Path_msg msg);
+  void OdomCallback(const nav_msgs::Odometry &msg);
+  void OdomGlobalCB(const nav_msgs::Odometry &msg);
+  void AStarCB(const nav_msgs::Path &msg);
+  void PathCB(const testing::Path_msg &msg);
   void PublishVel(float trans_vel, float rot_vel);
   float FindDistFromPath(float _x1, float _y1, float _x2, float _y2);
 };

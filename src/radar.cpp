@@ -11,8 +11,8 @@ testing::EsrTrack radar_scan;
 bool received_laser_scan = false;
 //ros::Publisher laser_pub;
 
-void LaserCB(sensor_msgs::LaserScan msg);
-void RadarCB(testing::EsrTrack msg);
+void LaserCB(const sensor_msgs::LaserScan &msg);
+void RadarCB(const testing::EsrTrack &msg);
 
 /************************************************************************************************
  *                                                                                              *
@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
  *                                                                                              *
  *                                                                                              *
  ***********************************************************************************************/
-void LaserCB(sensor_msgs::LaserScan msg) {
+void LaserCB(const sensor_msgs::LaserScan &msg) {
   received_laser_scan = true;
   laser_scan = msg;
   // temp_scan = msg;
@@ -61,7 +61,7 @@ void LaserCB(sensor_msgs::LaserScan msg) {
  *                                                                                              *
  *                                                                                              *
  ***********************************************************************************************/
-void RadarCB(testing::EsrTrack msg) {
+void RadarCB(const testing::EsrTrack &msg) {
   if(!received_laser_scan) return;
 
   if (msg.track_range > 0.0 && msg.track_range < 30.0) {

@@ -45,8 +45,8 @@ class TrackPoint: public AperiodicTask {
 
   void Task();
   void PublishSpeed(float lin_vel, float ang_vel);
-  void OdomCB(nav_msgs::Odometry msg);
-  void PathCB(testing::Path_msg msg);
+  void OdomCB(const nav_msgs::Odometry &msg);
+  void PathCB(const testing::Path_msg &msg);
   float FindAngleError(float x_des, float y_des);
   float FindPositionError(float x_des, float y_des);
   double WrapAngle(double angle);

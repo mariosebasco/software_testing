@@ -172,14 +172,23 @@ void Path::Task() {
       }
     }
 
-    path_msg.northing1 = northings[0];
-    path_msg.easting1 = eastings[0];
-    path_msg.northing2 = northings[1];
-    path_msg.easting2 = eastings[1];
-    path_msg.des_northing = des_northing;
-    path_msg.des_easting = des_easting;
-    path_msg.max_vel = curr_max_vel;
+    // path_msg.northing1 = northings[0];
+    // path_msg.easting1 = eastings[0];
+    // path_msg.northing2 = northings[1];
+    // path_msg.easting2 = eastings[1];
+    // path_msg.des_northing = des_northing;
+    // path_msg.des_easting = des_easting;
+    // path_msg.max_vel = curr_max_vel;
 
+    path_msg.northing1 = 0.0;
+    path_msg.easting1 = 0.0;
+    path_msg.northing2 = 5.0;
+    path_msg.easting2 = 0.0;
+    path_msg.des_northing = 1.0;
+    path_msg.des_easting = 0.0;
+    path_msg.max_vel = 0.5;
+
+    
     path_pub.publish(path_msg);
     
     ros::spinOnce();

@@ -18,10 +18,6 @@ DWA::DWA(Collision* _collisionObject) : AperiodicTask() {
   path_sub = nh.subscribe("vehicle_path", 1, &DWA::PathCB, this);
   vel_pub = nh.advertise<geometry_msgs::Twist>("cmd_vel", 1);
     
-  // GOAL_X = 4.0;
-  // GOAL_Y = 0.0;
-  // ORIENTATION = 0.0;
-
   MAX_TRANS_VEL = 0.40; //0.25m/s for testing
   MAX_ROT_VEL = 40.0*M_PI / 180.0;//M_PI/4.0;
   MAX_TRANS_ACCELERATION = 0.5;
@@ -63,6 +59,7 @@ void DWA::Task() {
   alpha = 0.8; //orientation
   beta = 0.8; //obstacle
   gamma = 0.3; //velocity
+  delta = 0.6; //A star path aligment
   zeta = 0.3; //distance
   
   VelocityStruct velocity_struct;
@@ -132,6 +129,7 @@ void DWA::Task() {
 	else distance_cost = (curr_dist_to_goal - dist_to_goal);
 	if(received_a_star) a_star_cost = FindPathCost(velocity_struct);
 	else a_star_cost = 0.0;
+
     	path_cost = alpha*orientation_cost\
 	  + beta*obstacle_cost\
 	  + gamma*velocity_cost\
@@ -294,10 +292,91 @@ float DWA::FindVelocityCost(VelocityStruct _velocity_struct) {
   return cost;
 }
 
+/************************************************************************
+ *                   COST OF FOLLOWING THE A STAR PATH                  *
+ * THE MORE OUT PATH IS ALIGNED WITH THE A STAR PATH THE HIGHER THE COST*
+ *                                                                      *
+ *                                                                      *          
+ ***********************************************************************/
 float DWA::FindPathCost(VelocityStruct _velocity_struct) {
+  float costmap_resolution = 0.025;
+  float path_size = a_star_path.poses.size();
+  float trans_vel = _velocity_struct.trans_vel;
+  float rot_vel = _velocity_struct.rot_vel;
+
+  float curr_x, curr_y, curr_theta;
+  curr_theta = getYaw(odom_quat);
+  curr_x = 0.0;
+  curr_y = 0.0;
+
+  // int num_points_to_compare = 5;
+  // float step = SIM_TIME / num_points_to_compare;
+  float path_veh_x, path_veh_y;
+  float path_x, path_y;
+  int start_index;
+  bool found_start = false;
   
-  
-  return 0.0;
+  for(int i = 0; i < path_size; i++) {
+    //convert path point to vehicle frame
+    path_x = a_star_path.poses[i].pose.position.x;
+    path_y = a_star_path.poses[i].pose.position.y;
+    path_veh_x = path_x*cos(curr_theta) + path_y*sin(curr_theta);
+    if(fabs(path_veh_x) < 2*costmap_resolution) {//close enough
+      path_veh_y = -path_x*sin(curr_theta) + path_y*cos(curr_theta);
+      start_index = i;
+      found_start = true;
+    }
+  }
+
+  if(!found_start) {
+    ROS_WARN("VEHICLE NOT IN A STAR PATH?");
+    return 0.0;
+  }
+
+  float offset = curr_y - path_veh_y;
+  int num_points = 5;
+  float step = SIM_TIME / num_points;
+
+  float next_x, next_y, next_theta;
+  float error = 0.0, error_normalizer = 0.0;
+  for(int i = 1; i < num_points; i++) {
+    if(rot_vel == 0.0) {
+      next_theta = curr_theta;
+      next_x = curr_x + cos(curr_theta)*trans_vel*step*i;
+      next_y = curr_y + sin(curr_theta)*trans_vel*step*i;
+    }
+    else {
+      float radius = trans_vel/rot_vel;
+      float circle_x = curr_x - radius*sin(curr_theta);
+      float circle_y = curr_y + radius*cos(curr_theta);
+
+      next_theta = curr_theta + rot_vel*step*i;
+      next_x = circle_x + radius*sin(next_theta);
+      next_y = circle_y - radius*cos(next_theta);
+    }
+
+    if(next_x > a_star_path.poses[path_size].pose.position.x) {
+      ROS_WARN("DWA: A STAR COST RETURNING 0");
+      return 0.0;
+    }
+    
+    for(int j = start_index + 1; j < path_size; j++) {
+      path_x = a_star_path.poses[j].pose.position.x;
+      path_y = a_star_path.poses[j].pose.position.y;
+      path_veh_x = path_x*cos(curr_theta) + path_y*sin(curr_theta);
+      if(fabs(path_veh_x - next_x) < 2*costmap_resolution) {
+	path_veh_y = -path_x*sin(curr_theta) + path_y*cos(curr_theta);
+	error += fabs(next_y - (path_veh_y - offset));
+	error_normalizer += 
+	start_index = j;
+      }
+    }
+  }  
+
+  error /= error_normalizer;
+  if(error > 1.0) error = 1.0;
+    
+  return (1.0 - error);
 }
 
 
@@ -332,7 +411,7 @@ float DWA::FindDistFromPath(float _x1, float _y1, float _x2, float _y2) {
  *                                                                      *
  *                                                                      *          
  ***********************************************************************/
-void DWA::OdomCallback(nav_msgs::Odometry msg) {
+void DWA::OdomCallback(const nav_msgs::Odometry &msg) {
   odom_msg = msg;
   odom_quat = tf::Quaternion(0.0, 0.0, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w);
   received_odom = true;
@@ -344,7 +423,7 @@ void DWA::OdomCallback(nav_msgs::Odometry msg) {
  *                                                                      *
  *                                                                      *          
  ***********************************************************************/
-void DWA::OdomGlobalCB(nav_msgs::Odometry msg) {
+void DWA::OdomGlobalCB(const nav_msgs::Odometry &msg) {
   odom_msg_global = msg;
   received_odom_global = true;
 }
@@ -356,7 +435,7 @@ void DWA::OdomGlobalCB(nav_msgs::Odometry msg) {
  *                                                                      *
  *                                                                      *          
  ***********************************************************************/
-void DWA::PathCB(testing::Path_msg msg) {
+void DWA::PathCB(const testing::Path_msg &msg) {
   path_msg = msg;
   received_path = true;
 }
@@ -368,7 +447,7 @@ void DWA::PathCB(testing::Path_msg msg) {
  *                                                                      *
  *                                                                      *          
  ***********************************************************************/
-void DWA::AStarCB(nav_msgs::Path msg) {
+void DWA::AStarCB(const nav_msgs::Path &msg) {
   received_a_star = true;
   a_star_path = msg;
 }

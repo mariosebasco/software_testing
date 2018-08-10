@@ -97,7 +97,7 @@ void TrackPoint::Task() {
  *                    ODOM CALLBACK FUNCTION                           *
  *                                                                     *
  *********************************************************************/
-void TrackPoint::OdomCB(nav_msgs::Odometry msg) {
+void TrackPoint::OdomCB(const nav_msgs::Odometry &msg) {
   received_odom = true;
   odom_msg = msg;
   odom_quat = tf::Quaternion(0.0, 0.0, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w);
@@ -109,7 +109,7 @@ void TrackPoint::OdomCB(nav_msgs::Odometry msg) {
  *                    PATH CALLBACK FUNCTION                           *
  *                                                                     *
  *********************************************************************/
-void TrackPoint::PathCB(testing::Path_msg msg) {
+void TrackPoint::PathCB(const testing::Path_msg &msg) {
   received_path = true;
   path_msg = msg;
 }

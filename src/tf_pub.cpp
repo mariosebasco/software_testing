@@ -7,7 +7,7 @@
 #include "sensor_msgs/LaserScan.h"
 
 
-void callback(nav_msgs::Odometry msg) {
+void callback(const nav_msgs::Odometry &msg) {
   ros::Time current_time;
   geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(0.0); 
   geometry_msgs::TransformStamped odom_trans;

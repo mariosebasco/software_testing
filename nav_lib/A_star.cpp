@@ -215,7 +215,7 @@ void A_star::Task() {
  *                          ODOM CALLBACK                              *
  *                                                                     *
  *********************************************************************/
-void A_star::OdomCB(nav_msgs::Odometry msg) {
+void A_star::OdomCB(const nav_msgs::Odometry &msg) {
   received_odom = true;
   odom_msg = msg;
 }
@@ -225,7 +225,7 @@ void A_star::OdomCB(nav_msgs::Odometry msg) {
  *                          COSTMAP CALLBACK                           *
  *                                                                     *
  *********************************************************************/
-void A_star::CostmapCB(nav_msgs::OccupancyGrid msg) {
+void A_star::CostmapCB(const nav_msgs::OccupancyGrid &msg) {
   received_costmap = true;
   costmap = msg;
 }

@@ -260,7 +260,7 @@ bool Collision::CostmapCheckPoint(float _x_pos, float _y_pos) {
  *                      SUBSCRIBER CALLBACK ODOM                       *
  *                                                                     *
  *********************************************************************/
-void Collision::OdomCallback(nav_msgs::Odometry msg) {
+void Collision::OdomCallback(const nav_msgs::Odometry &msg) {
   received_odom = true;
   odom_msg = msg;
   odom_quat = tf::Quaternion(0.0, 0.0, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w);
@@ -272,7 +272,7 @@ void Collision::OdomCallback(nav_msgs::Odometry msg) {
  *                  SUBSCRIBER CALLBACK COSTMAP                        *
  *                                                                     *
  *********************************************************************/
-void Collision::CostmapCallback(nav_msgs::OccupancyGrid msg) {
+void Collision::CostmapCallback(const nav_msgs::OccupancyGrid &msg) {
   received_map = true;
   costmap = msg;
   myCostmap = msg;

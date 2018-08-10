@@ -16,7 +16,7 @@ float ANGLE_MIN = -M_PI/2.0;
 float ANGLE_MAX = M_PI/2.0;
 ros::Publisher laser_pub;
 
-void LaserCB(sensor_msgs::LaserScan msg) {
+void LaserCB(const sensor_msgs::LaserScan &msg) {
   my_scan = msg;
   for (int i = 0; i < msg.ranges.size(); i++) {
     float angle = msg.angle_min + msg.angle_increment*i;

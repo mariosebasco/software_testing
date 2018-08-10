@@ -18,7 +18,7 @@ bool should_start = false;
 nav_msgs::Odometry odom_msg;
 tf::Quaternion odom_quat;
 
-void odomCallback(nav_msgs::Odometry msg) {
+void odomCallback(const nav_msgs::Odometry &msg) {
   should_start = true;
 
   odom_msg = msg;

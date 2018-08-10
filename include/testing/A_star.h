@@ -46,8 +46,8 @@ private:
   nav_msgs::Odometry odom_msg;
   nav_msgs::OccupancyGrid costmap;
 
-  void OdomCB(nav_msgs::Odometry msg);
-  void CostmapCB(nav_msgs::OccupancyGrid msg);
+  void OdomCB(const nav_msgs::Odometry &msg);
+  void CostmapCB(const nav_msgs::OccupancyGrid &msg);
   bool CheckCostmap(int _x, int _y);
   void Task();
 };
