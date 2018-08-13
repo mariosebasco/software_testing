@@ -39,7 +39,7 @@ bool Collision::Task(float _move_time, float _resolution, float _trans_vel, floa
   float move_time, resolution, trans_vel, rot_vel;
   bool collision;
 
-  while(!received_map && !received_odom) {
+  while(!received_map || !received_odom) {
     UpdateCallbacks();
   }
 
@@ -67,7 +67,7 @@ bool Collision::Task(float _move_time, float _resolution) {
   float move_time, resolution, trans_vel, rot_vel;
   bool collision;
 
-  while(!received_map && !received_odom) {
+  while(!received_map || !received_odom) {
     UpdateCallbacks();
   }
   
@@ -173,17 +173,21 @@ bool Collision::CostmapCheck(float _x_pos, float _y_pos, float _theta_pos) {
   //we are going to take points every 5cm along the body in the local frame and convert it to the global frame
   //then we'll see if those points are occupied in the grid
 
-  int grid_cell, grid_cell_y, grid_cell_x,  cell_value, map_height;
+  int grid_cell, grid_cell_y, grid_cell_x,  cell_value, map_height, map_width;
   double origin_x, origin_y;
   float map_resolution, x_pos, y_pos, theta_pos;
   origin_x = costmap.info.origin.position.x;
   origin_y = costmap.info.origin.position.y;
   map_resolution = costmap.info.resolution;
   map_height = costmap.info.height;
+  map_width = costmap.info.width;
   
   x_pos = _x_pos;
   y_pos = _y_pos;
   theta_pos = _theta_pos;
+
+  if(abs(int(x_pos/map_resolution)) > map_width/2) return false;
+  if(abs(int(y_pos/map_resolution)) > map_height/2) return false;
 
   std::vector<double> x_points(int(ceil(VEHICLE_WIDTH/0.05)) + 1, VEHICLE_LENGTH/2.0);
   std::vector<double> y_points(int(ceil(VEHICLE_WIDTH/0.05)) + 1, -VEHICLE_WIDTH/2.0);
@@ -210,6 +214,8 @@ bool Collision::CostmapCheck(float _x_pos, float _y_pos, float _theta_pos) {
     grid_cell= grid_cell_y + grid_cell_x;
     //std::cout << "grid cell " << grid_cell << std::endl;
 
+    if(grid_cell > costmap.data.size()) return false;
+    
     cell_value = costmap.data[grid_cell];
     myCostmap.data[grid_cell] = 100;
 
@@ -230,7 +236,7 @@ bool Collision::CostmapCheck(float _x_pos, float _y_pos, float _theta_pos) {
  *                                                                     *
  *********************************************************************/
 bool Collision::CostmapCheckPoint(float _x_pos, float _y_pos) {
-  int grid_cell, grid_cell_y, grid_cell_x,  cell_value, map_height;
+  int grid_cell, grid_cell_y, grid_cell_x,  cell_value, map_height, map_width;
   double origin_x, origin_y;
   float map_resolution, x_pos, y_pos;
 
@@ -241,11 +247,15 @@ bool Collision::CostmapCheckPoint(float _x_pos, float _y_pos) {
   origin_y = costmap.info.origin.position.y;
   map_resolution = costmap.info.resolution;
   map_height = costmap.info.height;
-
+  map_width = costmap.info.width;
+  
+  if(abs(int(x_pos/map_resolution)) > map_width/2) return false;
+  if(abs(int(y_pos/map_resolution)) > map_height/2) return false;
+  
   grid_cell_y = int(fabs(origin_y + y_pos)/map_resolution)*map_height;
   grid_cell_x = int(fabs(origin_x - x_pos)/map_resolution); 
   grid_cell= grid_cell_y + grid_cell_x;
-
+  
   cell_value = costmap.data[grid_cell];
   
   if(cell_value > 0) {

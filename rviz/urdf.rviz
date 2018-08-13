@@ -8,7 +8,6 @@ Panels:
         - /Status1
         - /RobotModel1/Links1
         - /TF1/Frames1
-        - /LaserScan1
         - /globalPath1
         - /localMap1
       Splitter Ratio: 0.5
@@ -102,6 +101,8 @@ Visualization Manager:
           Value: true
         chassis:
           Value: true
+        esr_1:
+          Value: true
         hokuyo_link:
           Value: true
         imu_link:
@@ -118,41 +119,13 @@ Visualization Manager:
           chassis:
             camera_link:
               {}
+            esr_1:
+              {}
             hokuyo_link:
               {}
             imu_link:
               {}
       Update Interval: 0
-      Value: true
-    - Alpha: 1
-      Autocompute Intensity Bounds: true
-      Autocompute Value Bounds:
-        Max Value: 10
-        Min Value: -10
-        Value: true
-      Axis: Z
-      Channel Name: intensity
-      Class: rviz/LaserScan
-      Color: 255; 255; 255
-      Color Transformer: Intensity
-      Decay Time: 0
-      Enabled: true
-      Invert Rainbow: false
-      Max Color: 255; 255; 255
-      Max Intensity: -999999
-      Min Color: 0; 0; 0
-      Min Intensity: 999999
-      Name: LaserScan
-      Position Transformer: XYZ
-      Queue Size: 10
-      Selectable: true
-      Size (Pixels): 3
-      Size (m): 0.100000001
-      Style: Flat Squares
-      Topic: /scan_new
-      Unreliable: false
-      Use Fixed Frame: true
-      Use rainbow: true
       Value: true
     - Class: rviz/Camera
       Enabled: false
@@ -169,14 +142,11 @@ Visualization Manager:
         LaserScan: true
         Map: true
         Marker: true
-        Polygon: true
         RobotModel: true
         TF: true
         Value: true
-        globalMap: true
         globalPath: true
         localMap: true
-        localPath: true
       Zoom Factor: 1
     - Alpha: 0.699999988
       Class: rviz/Map
@@ -208,57 +178,16 @@ Visualization Manager:
       Radius: 0.0299999993
       Shaft Diameter: 0.100000001
       Shaft Length: 0.100000001
-      Topic: /A_star_path
+      Topic: /rviz_path
       Unreliable: false
       Value: true
-    - Alpha: 1
-      Buffer Length: 1
-      Class: rviz/Path
-      Color: 25; 255; 0
-      Enabled: false
-      Head Diameter: 0.300000012
-      Head Length: 0.200000003
-      Length: 0.300000012
-      Line Style: Lines
-      Line Width: 0.0299999993
-      Name: localPath
-      Offset:
-        X: 0
-        Y: 0
-        Z: 0
-      Pose Color: 255; 85; 255
-      Pose Style: None
-      Radius: 0.0299999993
-      Shaft Diameter: 0.100000001
-      Shaft Length: 0.100000001
-      Topic: /move_base/TrajectoryPlannerROS/local_plan
-      Unreliable: false
-      Value: false
-    - Alpha: 1
-      Class: rviz/Polygon
-      Color: 25; 255; 0
-      Enabled: false
-      Name: Polygon
-      Topic: /move_base/global_costmap/footprint
-      Unreliable: false
-      Value: false
-    - Alpha: 0.699999988
-      Class: rviz/Map
-      Color Scheme: map
-      Draw Behind: false
-      Enabled: false
-      Name: globalMap
-      Topic: /move_base/global_costmap/costmap
-      Unreliable: false
-      Use Timestamp: false
-      Value: false
     - Alpha: 0.699999988
       Class: rviz/Map
       Color Scheme: costmap
       Draw Behind: false
       Enabled: true
       Name: localMap
-      Topic: /costmap_node/costmap/costmap
+      Topic: /my_costmap
       Unreliable: false
       Use Timestamp: false
       Value: true
@@ -285,9 +214,9 @@ Visualization Manager:
       Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 1000
+      Max Intensity: 714
       Min Color: 0; 0; 0
-      Min Intensity: 1000
+      Min Intensity: 267
       Name: LaserScan
       Position Transformer: XYZ
       Queue Size: 10
@@ -324,7 +253,7 @@ Visualization Manager:
   Value: true
   Views:
     Current:
-      Angle: -0.0200001001
+      Angle: 1.60499918
       Class: rviz/TopDownOrtho
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.0599999987
@@ -334,7 +263,7 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.00999999978
-      Scale: 120.024529
+      Scale: 116.833656
       Target Frame: <Fixed Frame>
       Value: TopDownOrtho (rviz)
       X: 1.35078955

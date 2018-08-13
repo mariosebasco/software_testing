@@ -61,12 +61,12 @@ void Path::Task() {
 
   velFile.open("/home/robot/catkin_ws/src/testing/gps_files/vel.txt");
   if (!velFile) {
-    ROS_WARN("unable to open path file");
+    ROS_WARN("unable to open vel file");
   }
 
-  velFile.open("/home/robot/catkin_ws/src/testing/gps_files/event_file.txt");
-  if (!velFile) {
-    ROS_WARN("unable to open path file");
+  eventFile.open("/home/robot/catkin_ws/src/testing/gps_files/event_file.txt");
+  if (!eventFile) {
+    ROS_WARN("unable to open event file");
   }
 
   odom_x = odom_msg.pose.pose.position.x;
@@ -184,8 +184,8 @@ void Path::Task() {
     path_msg.easting1 = 0.0;
     path_msg.northing2 = 5.0;
     path_msg.easting2 = 0.0;
-    path_msg.des_northing = 1.0;
-    path_msg.des_easting = 0.0;
+    path_msg.des_northing = 0.0;
+    path_msg.des_easting = -3.0;
     path_msg.max_vel = 0.5;
 
     

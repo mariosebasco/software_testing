@@ -24,30 +24,32 @@
 #include <geometry_msgs/PoseStamped.h>
 
 #include "AperiodicTask.h"
+#include "testing/Path_msg.h"
 
 class A_star: public AperiodicTask {
 public:
-  float GOAL_X_LOCAL, GOAL_Y_LOCAL;
   bool INTERRUPT;
   
   A_star();
   int Init();
 
 private:
-  bool received_odom, received_costmap;
+  bool received_odom, received_odom_global,  received_costmap, received_path;
   int GOAL_X, GOAL_Y;
   float VEHICLE_WIDTH;
   
   ros::NodeHandle nh;
-  ros::Subscriber odom_sub;
-  ros::Subscriber costmap_sub;
-  ros::Publisher path_pub;
+  ros::Subscriber costmap_sub, path_sub, odom_sub, odom_sub_global;
+  ros::Publisher path_pub, rviz_path_pub;
 
-  nav_msgs::Odometry odom_msg;
+  nav_msgs::Odometry odom_msg, odom_msg_global;
   nav_msgs::OccupancyGrid costmap;
+  testing::Path_msg path_msg;
 
   void OdomCB(const nav_msgs::Odometry &msg);
+  void OdomCBGlobal(const nav_msgs::Odometry &msg);
   void CostmapCB(const nav_msgs::OccupancyGrid &msg);
+  void PathCB(const testing::Path_msg &msg);
   bool CheckCostmap(int _x, int _y);
   void Task();
 };

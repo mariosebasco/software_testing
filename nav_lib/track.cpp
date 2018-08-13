@@ -42,7 +42,7 @@ int TrackPoint::Init() {
 void TrackPoint::Task() {
 
   //wait for odom data before starting this function
-  while(!received_odom && !received_path) {
+  while(!received_odom || !received_path) {
     ros::spinOnce();
   }
   
@@ -66,6 +66,7 @@ void TrackPoint::Task() {
     odom_y = odom_msg.pose.pose.position.y;
     
     //find the curvature given the point - 1/R = 2x/D^2
+    point_dist = sqrt(pow(odom_x - des_northing, 2) + pow(odom_y - des_easting, 2));
     float theta_curr = getYaw(odom_quat);// + imu_drift;
     float easting_vehicle = (des_northing - odom_x)*sin(-theta_curr) + (des_easting - odom_y)*cos(-theta_curr);
     float curvature = 2*easting_vehicle/(point_dist*point_dist);

@@ -46,8 +46,8 @@ int main(int argc, char **argv) {
   resolution = 0.25; //seconds
 
   pathObject->Init();
-  //dwaObject->Init();
   aStarObject->Init();
+  dwaObject->Init();
   
   ros::Rate loop_rate(10);
   while(ros::ok()) {loop_rate.sleep();}

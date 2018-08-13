@@ -15,10 +15,12 @@
 A_star::A_star() : AperiodicTask() {
   VEHICLE_WIDTH = 0.4;
   
-  odom_sub = nh.subscribe("odom", 1, &A_star::OdomCB, this);
-  //odom_sub = nh.subscribe("local/odom", 1, &A_star::OdomCB, this);
+  odom_sub = nh.subscribe("local/odom", 1, &A_star::OdomCB, this);
+  odom_sub_global = nh.subscribe("odom", 1, &A_star::OdomCBGlobal, this);
   costmap_sub = nh.subscribe("costmap_node/costmap/costmap", 1, &A_star::CostmapCB, this);
+  path_sub = nh.subscribe("vehicle_path", 1, &A_star::PathCB, this);
   path_pub = nh.advertise<nav_msgs::Path>("A_star_path", 1);
+  rviz_path_pub = nh.advertise<nav_msgs::Path>("rviz_path", 1);
 }
 
 /***********************************************************************
@@ -28,7 +30,9 @@ A_star::A_star() : AperiodicTask() {
  *********************************************************************/
 int A_star::Init() {
   received_odom = false;
+  received_odom_global = false;
   received_costmap = false;
+  received_path = false;
   INTERRUPT = false;
   
   return AperiodicTask::Init((char*) "a_star", 20);
@@ -42,19 +46,11 @@ int A_star::Init() {
  *********************************************************************/
 void A_star::Task() {
 
-  while(!received_odom && !received_costmap) {
+  while(!received_odom || !received_costmap || !received_path || !received_odom_global) {
     ros::spinOnce();
   }
 
-  //convert goal to integer value for A* algorithm
-  float map_resolution = costmap.info.resolution;
-  GOAL_X_LOCAL = 5;
-  GOAL_Y_LOCAL = 0;
-  GOAL_X = int(GOAL_X_LOCAL/map_resolution);
-  GOAL_Y = int(GOAL_Y_LOCAL/map_resolution);
 
-  printf("goal x: %d\n", GOAL_X);  
-  printf("goal y: %d\n", GOAL_Y);
   
   std::set<std::string> frontier;
   std::set<std::string> explored;
@@ -71,6 +67,17 @@ void A_star::Task() {
     int x_val, y_val, str_size, under_score, start_x, start_y;
     std::string best_name, temp_name;
 
+    //convert goal to integer value for A* algorithm
+    float map_resolution = costmap.info.resolution;
+    // float goal_x_local = path_msg.des_northing - odom_msg_global.pose.pose.position.x + odom_msg.pose.pose.position.x;
+    // float goal_y_local = path_msg.des_northing - odom_msg_global.pose.pose.position.y + odom_msg.pose.pose.position.y;
+    float goal_x_local = path_msg.des_northing;
+    float goal_y_local = path_msg.des_easting;
+    GOAL_X = int(goal_x_local/map_resolution);
+    GOAL_Y = int(goal_y_local/map_resolution);
+    // printf("goal x: %d\n", GOAL_X);
+    // printf("goal y: %d\n", GOAL_Y);
+    
     x_val = 0;
     y_val = 0;
     start_x = 0;
@@ -84,10 +91,14 @@ void A_star::Task() {
     temp_name = std::to_string(start_x) + "_" + std::to_string(start_y);
     frontier.insert(temp_name);
     dist_map[temp_name] = 0;
-
+    
+    //int num_iterations = 0;
     while(ros::ok() && !found_path && !INTERRUPT) {
       best_cost = max_cost;
 
+      //num_iterations += 1;
+      //printf("number of iterations: %d\n", num_iterations);
+      
       //iterate through frontier to decide which node to expand
       for(it = frontier.begin(); it != frontier.end(); ++it) {
 	str_size = (*it).size();
@@ -107,7 +118,16 @@ void A_star::Task() {
 	ROS_WARN("A* ALGORITHM FAILED TO FIND PATH");
 	return;
       }
+      if(CheckCostmap(GOAL_X, GOAL_Y)) {
+	ROS_WARN("A* ALGORITHM -- GOAL POINT OCCUPIED");
+	return;
+      }
 
+      // std::cout << "name " << best_name << std::endl;
+      // printf("cost: %f\n",best_cost);
+      // char input;
+      // std::cin >> input;
+      
       for(int dx = -1; dx < 2; dx++) {
 	if(found_path) break;
 	for(int dy = -1; dy < 2; dy++) {
@@ -154,7 +174,7 @@ void A_star::Task() {
 
     //if out here then solution has been found
     float actual_x, actual_y;
-    nav_msgs::Path final_path;
+    nav_msgs::Path final_path, rviz_path;
     geometry_msgs::PoseStamped pose;
     std::vector<geometry_msgs::PoseStamped> pose_vector;
     
@@ -163,11 +183,13 @@ void A_star::Task() {
     
     final_path.header.stamp = ros::Time::now();
     final_path.header.frame_id = "odom";
+    rviz_path.header.stamp = ros::Time::now();
+    rviz_path.header.frame_id = "odom";
 
     pose.header.stamp = ros::Time::now();
     pose.header.frame_id = "odom";
 
-    printf("before while loop\n");
+    // printf("before while loop\n");
     while(curr_name != start_name) {
       str_size = curr_name.size();
       under_score = (curr_name).find("_");
@@ -175,9 +197,6 @@ void A_star::Task() {
       y_val = std::stoi((curr_name).substr(under_score + 1, str_size - 1));
       actual_x = x_val*map_resolution + odom_msg.pose.pose.position.x;
       actual_y = y_val*map_resolution + odom_msg.pose.pose.position.y;
-
-      // printf("x_val: %d\n", x_val);
-      // printf("y_val: %d\n", y_val);
       
       pose.pose.position.x = actual_x;
       pose.pose.position.y = actual_y;
@@ -188,20 +207,14 @@ void A_star::Task() {
       pose.pose.orientation.w = 1.0;
 
       final_path.poses.insert(final_path.poses.begin(), pose);
-      //std::cout << curr_name << std::endl;
-
-      // for(it = frontier.begin(); it != frontier.end(); it++) {
-      // 	std::cout << *it << std::endl;
-      // 	std::cout << parent_map[*it] << std::endl;
-      // }
-      
+      rviz_path.poses.insert(rviz_path.poses.begin(), pose);
+      rviz_path.poses[0].pose.position.y *= -1;
       curr_name = parent_map[curr_name];
-      //std::cout << curr_name << std::endl;
-      
     }
     
     //final_path->poses = poses;
     path_pub.publish(final_path);
+    rviz_path_pub.publish(rviz_path);
 
     ros::spinOnce();
     loop_rate.sleep();
@@ -220,6 +233,18 @@ void A_star::OdomCB(const nav_msgs::Odometry &msg) {
   odom_msg = msg;
 }
 
+
+/***********************************************************************
+ *                                                                     *
+ *                          ODOM CALLBACK                              *
+ *                                                                     *
+ *********************************************************************/
+void A_star::OdomCBGlobal(const nav_msgs::Odometry &msg) {
+  received_odom_global = true;
+  odom_msg_global = msg;
+}
+
+
 /***********************************************************************
  *                                                                     *
  *                          COSTMAP CALLBACK                           *
@@ -229,6 +254,17 @@ void A_star::CostmapCB(const nav_msgs::OccupancyGrid &msg) {
   received_costmap = true;
   costmap = msg;
 }
+
+/***********************************************************************
+ *                                                                     *
+ *                          PATH CALLBACK                              *
+ *                                                                     *
+ *********************************************************************/
+void A_star::PathCB(const testing::Path_msg &msg) {
+  received_path = true;
+  path_msg = msg;
+}
+
 
 /***********************************************************************
  *                                                                     *
@@ -245,29 +281,29 @@ bool A_star::CheckCostmap(int _x, int _y) {
   map_resolution = costmap.info.resolution;
   map_height = costmap.info.height;
   map_width = costmap.info.width;
-
+  
   //if outside of costmap just say there's no collision for now  
   if(abs(_x) > map_width/2) return false;
   if(abs(_y) > map_height/2) return false;
   
-  float x_pos = map_resolution*_x;
-  float y_pos = map_resolution*_y;
+  float x_pos = map_resolution*_x + odom_msg.pose.pose.position.x;
+  float y_pos = map_resolution*_y + odom_msg.pose.pose.position.y;
   
   grid_cell_y = int(fabs(origin_y + y_pos)/map_resolution)*map_width;
   grid_cell_x = int(fabs(origin_x - x_pos)/map_resolution); 
   grid_cell = grid_cell_y + grid_cell_x;
 
-  cell_value = costmap.data[grid_cell];
-
-  if(cell_value > 0) return true;
-
+  if(grid_cell > costmap.data.size()) return false;
+  
+  cell_value = costmap.data[grid_cell];  
+  
   //let's check around the point -- we want it to be clear of obtacles
   //we're going to check a cricle around it of diameter = vehicle_width
   //check every 2 degrees to see if the grid is occupied
   float tot_degrees = 2.0*M_PI;
   float resolution = 5.0*M_PI/180.0;
   int num_iterations = int(tot_degrees/resolution);
-  float radius = 0.3;//VEHICLE_WIDTH/2.0;
+  float radius = VEHICLE_WIDTH/2.0;
   float curr_x, curr_y;
   
   for (int i = 0; i < num_iterations; i++) {
