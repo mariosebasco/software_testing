@@ -79,6 +79,7 @@ bool Collision::Task(float _move_time, float _resolution) {
   
   //propagate the state forward for del_t to obtain new state
   collision = PropagateState(move_time, resolution, trans_vel, rot_vel, time_to_impact);
+  costmap_pub.publish(myCostmap);
 
   if(collision) return true;
   return false;
@@ -186,8 +187,8 @@ bool Collision::CostmapCheck(float _x_pos, float _y_pos, float _theta_pos) {
   y_pos = _y_pos;
   theta_pos = _theta_pos;
 
-  if(abs(int(x_pos/map_resolution)) > map_width/2) return false;
-  if(abs(int(y_pos/map_resolution)) > map_height/2) return false;
+  if(int(fabs((origin_x - x_pos)/map_resolution)) > map_width) return false;
+  if(int(fabs((origin_y + y_pos)/map_resolution)) > map_height) return false;
 
   std::vector<double> x_points(int(ceil(VEHICLE_WIDTH/0.05)) + 1, VEHICLE_LENGTH/2.0);
   std::vector<double> y_points(int(ceil(VEHICLE_WIDTH/0.05)) + 1, -VEHICLE_WIDTH/2.0);
@@ -214,8 +215,6 @@ bool Collision::CostmapCheck(float _x_pos, float _y_pos, float _theta_pos) {
     grid_cell= grid_cell_y + grid_cell_x;
     //std::cout << "grid cell " << grid_cell << std::endl;
 
-    if(grid_cell > costmap.data.size()) return false;
-    
     cell_value = costmap.data[grid_cell];
     myCostmap.data[grid_cell] = 100;
 
@@ -249,8 +248,8 @@ bool Collision::CostmapCheckPoint(float _x_pos, float _y_pos) {
   map_height = costmap.info.height;
   map_width = costmap.info.width;
   
-  if(abs(int(x_pos/map_resolution)) > map_width/2) return false;
-  if(abs(int(y_pos/map_resolution)) > map_height/2) return false;
+  if(int(fabs((origin_x - x_pos)/map_resolution)) > map_width) return false;
+  if(int(fabs((origin_y + y_pos)/map_resolution)) > map_height) return false;
   
   grid_cell_y = int(fabs(origin_y + y_pos)/map_resolution)*map_height;
   grid_cell_x = int(fabs(origin_x - x_pos)/map_resolution); 

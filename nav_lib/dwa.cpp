@@ -38,7 +38,7 @@ int DWA::Init() {
   received_odom_global = false;
   received_path = false;
   received_a_star = false;
-  INTERRUPT = false;
+  NO_OBSTACLE_FOUND = false;
   
   return AperiodicTask::Init((char *) "localTrackTask", 50);
 }
@@ -47,9 +47,7 @@ int DWA::Init() {
 void DWA::Task() {
 
   //make sure you've received odometry and path data
-  while(!received_odom || !received_path || !received_odom_global || !received_a_star) {
-    //printf("in here\n");
-    //std::cout << received_a_star << std::endl;
+  while((!received_odom || !received_path || !received_odom_global) && ros::ok()) {
     ros::spinOnce();
   }
 
@@ -63,15 +61,16 @@ void DWA::Task() {
   beta = 0.8; //obstacle
   gamma = 0.3; //velocity
   delta = 0.6; //A star path aligment
-  zeta = 0.3; //distance
+  //zeta = 0.3; //distance
   
   VelocityStruct velocity_struct;
   float opt_obstacle, opt_orientation, opt_vel, opt_distance, dist_to_goal;
   
   ros::Rate loop_rate(10.0);
     
-  while(ros::ok() && !INTERRUPT) {
-
+  while(ros::ok()) {
+    TriggerWait();
+    
     curr_x = odom_msg.pose.pose.position.x;
     curr_y = odom_msg.pose.pose.position.y;
     goal_x = path_msg.des_northing - odom_msg_global.pose.pose.position.x + curr_x;
@@ -91,7 +90,7 @@ void DWA::Task() {
     if(rot_upper_limit > MAX_ROT_VEL) rot_upper_limit = MAX_ROT_VEL;
     if(rot_lower_limit < -MAX_ROT_VEL) rot_lower_limit = -MAX_ROT_VEL;
 
-    float curr_dist_to_goal = sqrt(pow((curr_x - goal_x), 2) + pow((curr_y - goal_y), 2));
+    //float curr_dist_to_goal = sqrt(pow((curr_x - goal_x), 2) + pow((curr_y - goal_y), 2));
     
     float num_trans_iterations = int((vel_upper_limit - vel_lower_limit)/RESOLUTION);
     float num_rot_iterations = int((rot_upper_limit - rot_lower_limit)/RESOLUTION);
@@ -108,12 +107,14 @@ void DWA::Task() {
     if(dist_from_path > MAX_DIST_FROM_PATH) {
       PublishVel(0.0, 0.0);
       ROS_WARN("STOPPING -- REACHED MAX DISTANCE FROM PATH\n");
-      return;
     }
     
     //update odom and costmap for the collision class
     collisionObject->UpdateCallbacks();
-    
+
+    float best_curvature, curr_curvature, curvature_error;
+    if(received_a_star) best_curvature = OptimalPathVel();
+      
     for(int i = 0; i <= num_trans_iterations; i++) {
       temp_trans_vel = vel_lower_limit + i*RESOLUTION;
       
@@ -123,37 +124,44 @@ void DWA::Task() {
     	velocity_struct.trans_vel = temp_trans_vel;
     	velocity_struct.rot_vel = temp_rot_vel;
 
+	if(received_a_star) {
+	  curr_curvature = temp_rot_vel / temp_trans_vel;
+	  curvature_error = fabs((best_curvature - curr_curvature) / (5.0));
+	  if(curvature_error > 1.0) curvature_error = 1.0;
+	}
+	else curvature_error = 1.0;
+	
     	obstacle_cost = FindObstacleCost(velocity_struct);
     	if(obstacle_cost == 0.0) {continue;}
     	orientation_cost = FindOrientationCost(velocity_struct, goal_x, goal_y, dist_to_goal);
 	if(orientation_cost == 0.0) {continue;}
     	velocity_cost = FindVelocityCost(velocity_struct);
-	if(dist_to_goal > curr_dist_to_goal) distance_cost = 0.0;
-	else distance_cost = (curr_dist_to_goal - dist_to_goal);
-	a_star_cost = FindPathCost(velocity_struct);
+	// if(dist_to_goal > curr_dist_to_goal) distance_cost = 0.0;
+	// else distance_cost = (curr_dist_to_goal - dist_to_goal);
+	a_star_cost = 1.0 - curvature_error;
 
     	path_cost = alpha*orientation_cost\
 	  + beta*obstacle_cost\
 	  + gamma*velocity_cost\
-	  + delta*a_star_cost\
-	  + zeta*distance_cost;
+	  + delta*a_star_cost;
+	  //+ zeta*distance_cost;
 
 	//**********************************************************************
 	//TESTING
-	printf("lin vel: %f\n", temp_trans_vel);
-	printf("rot vel: %f\n", temp_rot_vel);
-	  
-	printf("orientation cost: %f\n", orientation_cost);
-	printf("obstable cost: %f\n", obstacle_cost);
-	printf("velocity cost: %f\n", velocity_cost);
-	printf("distance cost: %f\n", distance_cost);
-	printf("path cost: %f\n", a_star_cost);
-	printf("total cost: %f\n", path_cost);
-	std::cout << "****************************" <<std::endl << std::endl;
+	// std::cout << "****************************" <<std::endl << std::endl;
+	// printf("lin vel: %f\n", temp_trans_vel);
+	// printf("rot vel: %f\n", temp_rot_vel);
+	// printf("orientation cost: %f\n", orientation_cost);
+	// printf("obstable cost: %f\n", obstacle_cost);
+	// printf("velocity cost: %f\n", velocity_cost);
+	// //printf("distance cost: %f\n", distance_cost);
+	// printf("path cost: %f\n", a_star_cost);
+	// printf("total cost: %f\n", path_cost);
+	// std::cout << "****************************" <<std::endl << std::endl;
 
-	char myChar;
-	std::cin >> myChar;
-	collisionObject->UpdateCallbacks();
+	// char myChar;
+	// std::cin >> myChar;
+	// collisionObject->UpdateCallbacks();
 	
 	//**********************************************************************
 	
@@ -162,15 +170,18 @@ void DWA::Task() {
     	  max_path_cost = path_cost;
     	  optimal_trans_vel = velocity_struct.trans_vel;
     	  optimal_rot_vel = velocity_struct.rot_vel;
-    	  opt_obstacle = obstacle_cost;
-    	  opt_orientation = orientation_cost;
-    	  opt_vel = velocity_cost;
-    	  opt_distance = distance_cost;
-
+    	  // opt_obstacle = obstacle_cost;
+    	  // opt_orientation = orientation_cost;
+    	  // opt_vel = velocity_cost;
     	}
       }
     }
 
+    // printf("*********************************************\n");
+    // printf("optimal lin vel; %f\n", optimal_trans_vel);
+    // printf("optimal rot vel; %f\n", optimal_rot_vel);
+    // printf("*********************************************\n");
+    
     PublishVel(optimal_trans_vel, optimal_rot_vel);
     
     max_path_cost = 0.0;
@@ -302,18 +313,22 @@ float DWA::FindVelocityCost(VelocityStruct _velocity_struct) {
  *                                                                      *
  *                                                                      *          
  ***********************************************************************/
-VelocityStruct DWA::OptimalPathVel() {
-  VelocityStruct optimal_vel;
+float DWA::OptimalPathVel() {
+  float optimal_curvature;
   int path_size = a_star_path.poses.size();
-  float lin_vel, rot_vel;
-  float curr_x, curr_y, curr_thetal;
-  int time_to_impact;
+  float lin_vel, rot_vel, curvature, rad_curvature;
+  float curr_x, curr_y, curr_theta, temp_x, temp_y;
+  float time_to_impact;
   float resolution = 0.25;
-
+  float L = 0.4;
+  
   float curr_lin_vel = odom_msg.twist.twist.linear.x;
   float curr_rot_vel = odom_msg.twist.twist.angular.z;
   float vel_upper_limit = curr_lin_vel + MAX_TRANS_ACCELERATION*SIM_TIME;
   float rot_upper_limit = curr_rot_vel + MAX_ROT_ACCELERATION*SIM_TIME;
+
+  if(vel_upper_limit > MAX_TRANS_VEL) vel_upper_limit = MAX_TRANS_VEL;
+  if(rot_upper_limit > MAX_ROT_VEL) rot_upper_limit = MAX_ROT_VEL;
   
   lin_vel = 0.0;
   rot_vel = 0.0;
@@ -321,180 +336,54 @@ VelocityStruct DWA::OptimalPathVel() {
   curr_y = odom_msg.pose.pose.position.y;
   curr_theta = getYaw(odom_quat);
 
-  for (int i = 0; i < path_size; i++) {
+  for (int i = path_size - 1; i > 0; i-=2) {
     temp_x = a_star_path.poses[i].pose.position.x;
     temp_y = a_star_path.poses[i].pose.position.y;
 
     //find velocity needed to get to that point
     float point_dist = sqrt(pow(temp_x - curr_x, 2) + pow(temp_y - curr_y, 2));
     float easting_vehicle = (temp_x - curr_x)*sin(-curr_theta) + (temp_y - curr_y)*cos(-curr_theta);
-    float curvature = 2*easting_vehicle/(point_dist*point_dist);
-        
-    //given curvature find velocities
-    float rad_curvature = 1/curvature;
-    if(rad_curvature >= 0.0) {
+    curvature = 2*easting_vehicle/(point_dist*point_dist);
+    
+    if(curvature == 0.0) {
+      rot_vel = 0.0;
+      lin_vel = vel_upper_limit;
+    }
+    else if(curvature > 0.0) {
+      rad_curvature = 1/curvature;
       float v_left = vel_upper_limit;
       rot_vel = v_left/(rad_curvature + L/2.0);
-      lin_vel = ang_vel*rad_curvature;
+      lin_vel = rot_vel*rad_curvature;
     }
     else {
+      rad_curvature = 1/curvature;
       float v_right = vel_upper_limit;
       rot_vel = v_right/(rad_curvature - L/2.0);
-      lin_vel = ang_vel*rad_curvature;      
+      lin_vel = rot_vel*rad_curvature;      
     }
-
-    if(fabs(lin_vel) > vel_upper_limit) break;
-    if(fabs(rot_vel) > rot_upper_limit) break;
 
     //find time to reach point
     float time_to_point;
     if(rot_vel == 0.0) {
       time_to_point = (point_dist)/lin_vel;
+      resolution = time_to_point / (point_dist*4.0); //check collision 4 times every meter
     }
     else {
-      float radius = lin_vel / rot_vel;
-      float next_theta = curr_theta + atan2((temp_y - curr_y), (temp_x - curr_x));
-      time_to_point = (next_theta - curr_theta) / rot_vel;
+      float del_theta = asin(point_dist*curvature/2.0);
+      float path_length = 2.0*del_theta/curvature;
+      time_to_point = path_length / lin_vel;
+      resolution = time_to_point / (path_length*4.0); //check collision 4 times every meter
     }
     
-    collision = collisionObject->Task(time_to_point, resolution, lin_vel, rot_vel, time_to_impact);
-    if(collision) break;
-  }
-
-  optimal_vel.trans_vel = lin_vel;
-  optimal_vel.rot_vel = rot_vel;
-
-  return optimal_vel;
-}
-
-
-
-
-/************************************************************************
- *                   COST OF FOLLOWING THE A STAR PATH                  *
- * THE MORE OUT PATH IS ALIGNED WITH THE A STAR PATH THE HIGHER THE COST*
- *                                                                      *
- *                                                                      *          
- ***********************************************************************/
-float DWA::FindPathCost(VelocityStruct _velocity_struct) {
-  float costmap_resolution = 0.025;
-  int path_size = a_star_path.poses.size();
-  float trans_vel = _velocity_struct.trans_vel;
-  float rot_vel = _velocity_struct.rot_vel;
-
-  float curr_x, curr_y, curr_theta;
-  curr_theta = getYaw(odom_quat);
-  curr_x = odom_msg.pose.pose.position.x;
-  curr_y = odom_msg.pose.pose.position.y;
-
-  // int num_points_to_compare = 5;
-  // float step = SIM_TIME / num_points_to_compare;
-  float path_veh_x, path_veh_y, start_x, start_y;
-  float rel_x, rel_y;
-  float path_x, path_y;
-  int start_index, end_index;
-  bool found_start = false, found_end = false;
-  
-  for(int i = 0; i < path_size; i++) {
-    //convert path point to vehicle frame
-    start_x = a_star_path.poses[i].pose.position.x;
-    start_y = a_star_path.poses[i].pose.position.y;
-    rel_x = path_x - curr_x;
-    rel_y = path_y - curr_y;
-    path_veh_x = -(rel_x*cos(curr_theta) - rel_y*sin(curr_theta));
-    //printf("x path: %f\n", path_veh_x);
-    if(fabs(path_veh_x) < 2*costmap_resolution) {//close enough
-      path_veh_y = -(rel_x*sin(curr_theta) + rel_y*cos(curr_theta));      
-      start_index = i;
-      found_start = true;
+    bool collision = collisionObject->Task(time_to_point, resolution, lin_vel, rot_vel, time_to_impact);
+    if(!collision) {
+      if(i == (path_size - 1)) NO_OBSTACLE_FOUND = true;
+      received_a_star = false;
       break;
     }
   }
 
-  printf("start index: %d\n", start_index);
-  printf("path_veh_x: %f\n", path_veh_x);
-  printf("path_veh_y: %f\n", path_veh_y);
-  
-  if(!found_start) {
-    //ROS_WARN("VEHICLE NOT IN A STAR PATH?");
-    return 0.0;
-  }
-
-  float offset = path_veh_y;
-  float end_theta, end_x, end_y;
-
-  if(rot_vel == 0.0) {
-    end_theta = curr_theta;
-    end_x = curr_x + cos(curr_theta)*trans_vel*SIM_TIME;
-    end_y = curr_y + sin(curr_theta)*trans_vel*SIM_TIME;
-  }
-  else {
-    float radius = trans_vel/rot_vel;
-    float circle_x = curr_x - radius*sin(curr_theta);
-    float circle_y = curr_y + radius*cos(curr_theta);
-
-    end_theta = curr_theta + rot_vel*SIM_TIME;
-    end_x = circle_x + radius*sin(end_theta);
-    end_y = circle_y - radius*cos(end_theta);
-  }
-  
-  //Find the end index
-  for(int i = start_index; i < path_size; i++) {
-    path_x = a_star_path.poses[i].pose.position.x;
-    path_y = a_star_path.poses[i].pose.position.y;
-    rel_x = path_x - start_x;
-    rel_y = path_y - start_y;
-    path_veh_x = -(rel_x*cos(curr_theta) - rel_y*sin(curr_theta));
-    if(fabs(path_veh_x - end_x) < 2*costmap_resolution) {//close enough
-      path_veh_y = -(rel_x*sin(curr_theta) + rel_y*cos(curr_theta));      
-      end_index = i;
-      found_end = true;
-    }
-  }
-
-
-  if(!found_end) {
-    return 0.0;
-  }
-
-  printf("sim time: %f\n", SIM_TIME);
-  printf("end x: %f\n", end_x);
-  printf("end y: %f\n", end_y);
-  printf("end index: %d\n", end_index);
-  printf("end path x: %f\n", a_star_path.poses[end_index].pose.position.x);
-  printf("end path y: %f\n", a_star_path.poses[end_index].pose.position.y);
-
-  
-  int num_points = 3;
-  float veh_x, veh_y;
-  float error = 0.0;
-  float error_normalizer = 0.0;
-  for(int i = 1; i <= num_points; i++) {
-    int index = start_index + int((end_index - start_index)*i/num_points);
-    path_x = a_star_path.poses[index].pose.position.x;
-    path_y = a_star_path.poses[index].pose.position.y;
-    veh_x = end_x*i/num_points;
-    veh_y = end_y*i/num_points;
-    rel_x = path_x - veh_x;
-    rel_y = path_y - veh_y;
-    path_veh_x = -(rel_x*cos(curr_theta) - rel_y*sin(curr_theta));
-    path_veh_y = -(rel_x*sin(curr_theta) + rel_y*cos(curr_theta));      
-
-    std::cout << std::endl;
-    printf("index: %d\n", index);
-    printf("path_veh_x: %f\n", path_veh_x);
-    printf("path_veh_y: %f\n", path_veh_y);
-    std::cout << std::endl;
-    
-    error += fabs(veh_y - (path_veh_y - offset));
-    //error_normalizer += fabs(path_veh_y - offset);
-    error_normalizer += trans_vel*(SIM_TIME*i/(num_points + 2));
-  }
-
-  error /= error_normalizer;
-  if(error > 1.0) error = 1.0;
-    
-  return (1.0 - error);
+  return curvature;
 }
 
 

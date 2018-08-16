@@ -13,6 +13,7 @@
 #include <math.h>
 #include <list>
 #include <fstream>
+#include <atomic>
 
 #include <ros/ros.h>
 #include <tf/transform_broadcaster.h>
@@ -26,8 +27,6 @@
 
 class TrackPoint: public AperiodicTask {
  public:
-  bool INTERRUPT;
-
   TrackPoint();
   int Init();
 

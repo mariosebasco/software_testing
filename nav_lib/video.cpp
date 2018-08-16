@@ -16,18 +16,18 @@ Video::Video() : AperiodicTask() {
 int Video::Init(double duration_input, int video) {
   duration = duration_input;
   video_number = video;
+  FINISHED_RECORDING = false;
   
   return AperiodicTask::Init((char *) "VideoTask", 30);
 }
 
 void Video::Task() {
-  StateController::vehicle_state = RECORDING_VIDEO;
   start();
 
   ros::Duration(duration).sleep();
 
   end();
-  StateController::vehicle_state = IDLE;
+  FINISHED_RECORDING = true;
 }
 
 void Video::start() {

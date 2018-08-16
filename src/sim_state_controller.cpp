@@ -12,8 +12,15 @@
 
 
 #include "sim_state_controller.h"
+#include <string>
 
 VehicleState StateController::vehicle_state = IDLE;
+testing::Path_msg path_msg;
+bool received_path = false;
+ros::Publisher vel_pub;
+
+void PathCB(const testing::Path_msg &msg);
+void PublishSpeed(float lin_vel, float rot_vel);
 
 /***********************************************************************
  *                                                                     *
@@ -22,86 +29,108 @@ VehicleState StateController::vehicle_state = IDLE;
  *********************************************************************/
 int main(int argc, char **argv) {
   ros::init(argc, argv, "sample_node");
-
+  ros::NodeHandle nh;
+  ros::Subscriber path_sub = nh.subscribe("vehicle_path", 1, PathCB);
+  vel_pub = nh.advertise<geometry_msgs::Twist>("cmd_vel", 1);
+    
   Collision *collisionObject = new Collision();
-  TrackPoint *trackPointObject = new TrackPoint(collisionObject);
   DWA *dwaObject = new DWA(collisionObject);
-  Video *videoObject = new Video();
+  TrackPoint *trackPointObject = new TrackPoint();
+  A_star *aStarObject = new A_star();
+  Path *pathObject = new Path();
   
   bool will_collide;
-  int ret;
 
-  // dwaObject->GOAL_X = 1.0;
-  // dwaObject->GOAL_Y = 0.0;
-  //dwaObject->Init();
+  float sim_time, resolution;
+  int prev_id = 0;
+  sim_time = 3; //seconds
+  resolution = 0.25; 
+
+  pathObject->Init();
+  trackPointObject->Init();
+  aStarObject->Init();
+  dwaObject->Init();
   
-  ros::Rate loop_rate(10);
-
+  ros::Rate loop_rate(10.0);
   //while(ros::ok()) {loop_rate.sleep();}
-  
   while(ros::ok()) {
-
+    while(!received_path && ros::ok()) ros::spinOnce();
+    
     switch(StateController::vehicle_state) {
     case IDLE:
       StateController::vehicle_state = TRACKING_GLOBAL;
-      ret = trackPointObject->Init();
+      ROS_INFO("switching to global state\n");	      
       break;
       
     case TRACKING_GLOBAL:
-      if(trackPointObject->COLLISION_DETECTED) {
-      	StateController::vehicle_state = TRACKING_LOCAL;
-      	dwaObject->GOAL_X = trackPointObject->GOAL_X;
-      	dwaObject->GOAL_Y = trackPointObject->GOAL_Y;
-	dwaObject->PATH_POINT = trackPointObject->PATH_POINT;
-      	dwaObject->Init();
+      collisionObject->UpdateCallbacks();
+      if(collisionObject->Task(sim_time, resolution)) {
+	ROS_INFO("switching to local state\n");
+  	StateController::vehicle_state = TRACKING_LOCAL;
+	break;
       }
-      //printf("tracking global path\n");
+      if(path_msg.reached_end) {
+	StateController::vehicle_state = FINISHED;
+	ROS_INFO("switching to finished state\n");
+	break;
+      }
+      trackPointObject->Trigger(0);
       break;
       
     case TRACKING_LOCAL:
-      if(dwaObject->REACHED_GOAL) {
-	trackPointObject->PATH_POINT = dwaObject->PATH_POINT;
+      if(dwaObject->NO_OBSTACLE_FOUND) {
+	dwaObject->NO_OBSTACLE_FOUND = false;
       	StateController::vehicle_state = TRACKING_GLOBAL;
-      	trackPointObject->COLLISION_DETECTED = false;
+	ROS_INFO("switching to global state\n");	
+	break;
       }
-      printf("tracking global path\n");
+      if(path_msg.reached_end) {
+	StateController::vehicle_state = FINISHED;
+	ROS_INFO("switching to finished state\n");		
+	break;
+      }
+      aStarObject->Trigger(0);
+      dwaObject->Trigger(0);
       break;
       
     case RECORDING_VIDEO:
-      printf("taking video\n");
       break;
       
     case FAULT:
-      printf("fault state\n");
+      //subscribe to fault topic... wait for the topic to give you the green light to continue?
       break;
       
     case FINISHED:
-      printf("finished everything\n");
-      break;
+      PublishSpeed(0.0, 0.0);
+      return 0;
       
     default:
       break;
     }
-      
+
+    ros::spinOnce();
     loop_rate.sleep();
   }
-  
-  //take a video for 10 seconds
-  // videoObject->Init(10, 2);
-  // while(StateController::video_state == NOT_RECORDING) {} //wait for it to start recording
-  // while(StateController::video_state == RECORDING) {
-    //trackPointObject->publishSpeed(0.0, 0.2);
-  //} //wait for it to finish recording
-  //printf("finished recording\n");
 
-
-  std::cout << "EXITING" << std::endl;
+  ROS_INFO("EXITING");
   delete trackPointObject;
   delete dwaObject;
   delete collisionObject;
-  delete videoObject;
+  delete aStarObject;
+  delete pathObject;
   
   return 0;
 }
 
 	   
+void PathCB(const testing::Path_msg &msg) {
+  path_msg = msg;
+  received_path = true;
+}
+
+void PublishSpeed(float lin_vel, float rot_vel) {
+  geometry_msgs::Twist cmd_vel;
+  cmd_vel.linear.x = lin_vel;
+  cmd_vel.angular.z = rot_vel;
+  vel_pub.publish(cmd_vel);
+}

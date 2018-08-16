@@ -8,7 +8,6 @@
 #define PeriodicTask_h
 
 #include <semaphore.h>
-#include <signal.h>
 
 #include "ThreadTask.h"
 

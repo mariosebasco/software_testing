@@ -7,7 +7,8 @@
 #ifndef AperiodicTask_h
 #define AperiodicTask_h
 
-#include <semaphore.h>
+//#include <semaphore.h>
+#include <pthread.h>
 
 #include "ThreadTask.h"
 
@@ -21,7 +22,9 @@ public:
 private:
 	pthread_t mThreadId;
 	
-	sem_t mTaskSemaphore;
+	//sem_t mTaskSemaphore;
+	pthread_mutex_t mTaskMutex;
+	pthread_cond_t mTaskCondVar;
 	
 	static void *TaskThread(void *arg);
 

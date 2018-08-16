@@ -101,8 +101,6 @@ Visualization Manager:
           Value: true
         chassis:
           Value: true
-        esr_1:
-          Value: true
         hokuyo_link:
           Value: true
         imu_link:
@@ -118,8 +116,6 @@ Visualization Manager:
         odom:
           chassis:
             camera_link:
-              {}
-            esr_1:
               {}
             hokuyo_link:
               {}
@@ -214,9 +210,9 @@ Visualization Manager:
       Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 714
+      Max Intensity: 1000
       Min Color: 0; 0; 0
-      Min Intensity: 267
+      Min Intensity: 1000
       Name: LaserScan
       Position Transformer: XYZ
       Queue Size: 10
@@ -253,7 +249,7 @@ Visualization Manager:
   Value: true
   Views:
     Current:
-      Angle: 1.60499918
+      Angle: 6.30499697
       Class: rviz/TopDownOrtho
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.0599999987
@@ -263,7 +259,7 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.00999999978
-      Scale: 116.833656
+      Scale: 68.9647751
       Target Frame: <Fixed Frame>
       Value: TopDownOrtho (rviz)
       X: 1.35078955

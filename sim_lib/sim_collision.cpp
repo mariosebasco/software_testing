@@ -39,7 +39,7 @@ bool Collision::Task(float _move_time, float _resolution, float _trans_vel, floa
   float move_time, resolution, trans_vel, rot_vel;
   bool collision;
 
-  while(!received_map && !received_odom) {
+  while(!received_map || !received_odom) {
     UpdateCallbacks();
   }
 
@@ -67,9 +67,10 @@ bool Collision::Task(float _move_time, float _resolution) {
   float move_time, resolution, trans_vel, rot_vel;
   bool collision;
 
-  while(!received_map && !received_odom) {
+  while(!received_map || !received_odom) {
     UpdateCallbacks();
   }
+  
   move_time = _move_time;
   resolution = _resolution;
   trans_vel = odom_msg.twist.twist.linear.x;
@@ -78,6 +79,7 @@ bool Collision::Task(float _move_time, float _resolution) {
   
   //propagate the state forward for del_t to obtain new state
   collision = PropagateState(move_time, resolution, trans_vel, rot_vel, time_to_impact);
+  costmap_pub.publish(myCostmap);
 
   if(collision) return true;
   return false;
@@ -171,18 +173,22 @@ bool Collision::CostmapCheck(float _x_pos, float _y_pos, float _theta_pos) {
   //First we need a list of all the x, y points we are concerned with in checking for collision
   //we are going to take points every 5cm along the body in the local frame and convert it to the global frame
   //then we'll see if those points are occupied in the grid
-  
-  int grid_cell, grid_cell_y, grid_cell_x,  cell_value, map_height;
+
+  int grid_cell, grid_cell_y, grid_cell_x,  cell_value, map_height, map_width;
   double origin_x, origin_y;
   float map_resolution, x_pos, y_pos, theta_pos;
   origin_x = costmap.info.origin.position.x;
   origin_y = costmap.info.origin.position.y;
   map_resolution = costmap.info.resolution;
   map_height = costmap.info.height;
+  map_width = costmap.info.width;
   
   x_pos = _x_pos;
   y_pos = _y_pos;
   theta_pos = _theta_pos;
+
+  if(int(fabs((origin_x - x_pos)/map_resolution)) > map_width) return false;
+  if(int(fabs((origin_y + y_pos)/map_resolution)) > map_height) return false;
 
   std::vector<double> x_points(int(ceil(VEHICLE_WIDTH/0.05)) + 1, VEHICLE_LENGTH/2.0);
   std::vector<double> y_points(int(ceil(VEHICLE_WIDTH/0.05)) + 1, -VEHICLE_WIDTH/2.0);
@@ -208,11 +214,9 @@ bool Collision::CostmapCheck(float _x_pos, float _y_pos, float _theta_pos) {
     grid_cell_x = int(fabs(origin_x - x_points_glob[i])/map_resolution); 
     grid_cell= grid_cell_y + grid_cell_x;
     //std::cout << "grid cell " << grid_cell << std::endl;
-    //printf("resolution: %f\n", map_resolution);
-    
+
     cell_value = costmap.data[grid_cell];
     myCostmap.data[grid_cell] = 100;
-
 
     if(cell_value > 0) {
       return true;
@@ -231,7 +235,7 @@ bool Collision::CostmapCheck(float _x_pos, float _y_pos, float _theta_pos) {
  *                                                                     *
  *********************************************************************/
 bool Collision::CostmapCheckPoint(float _x_pos, float _y_pos) {
-  int grid_cell, grid_cell_y, grid_cell_x,  cell_value, map_height;
+  int grid_cell, grid_cell_y, grid_cell_x,  cell_value, map_height, map_width;
   double origin_x, origin_y;
   float map_resolution, x_pos, y_pos;
 
@@ -242,11 +246,15 @@ bool Collision::CostmapCheckPoint(float _x_pos, float _y_pos) {
   origin_y = costmap.info.origin.position.y;
   map_resolution = costmap.info.resolution;
   map_height = costmap.info.height;
-
+  map_width = costmap.info.width;
+  
+  if(int(fabs((origin_x - x_pos)/map_resolution)) > map_width) return false;
+  if(int(fabs((origin_y + y_pos)/map_resolution)) > map_height) return false;
+  
   grid_cell_y = int(fabs(origin_y + y_pos)/map_resolution)*map_height;
   grid_cell_x = int(fabs(origin_x - x_pos)/map_resolution); 
   grid_cell= grid_cell_y + grid_cell_x;
-
+  
   cell_value = costmap.data[grid_cell];
   
   if(cell_value > 0) {
@@ -261,7 +269,7 @@ bool Collision::CostmapCheckPoint(float _x_pos, float _y_pos) {
  *                      SUBSCRIBER CALLBACK ODOM                       *
  *                                                                     *
  *********************************************************************/
-void Collision::OdomCallback(nav_msgs::Odometry msg) {
+void Collision::OdomCallback(const nav_msgs::Odometry &msg) {
   received_odom = true;
   odom_msg = msg;
   odom_quat = tf::Quaternion(0.0, 0.0, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w);
@@ -273,7 +281,7 @@ void Collision::OdomCallback(nav_msgs::Odometry msg) {
  *                  SUBSCRIBER CALLBACK COSTMAP                        *
  *                                                                     *
  *********************************************************************/
-void Collision::CostmapCallback(nav_msgs::OccupancyGrid msg) {
+void Collision::CostmapCallback(const nav_msgs::OccupancyGrid &msg) {
   received_map = true;
   costmap = msg;
   myCostmap = msg;

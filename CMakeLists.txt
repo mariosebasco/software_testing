@@ -131,7 +131,8 @@ add_library(sim_lib
   sim_lib/sim_track.cpp
   sim_lib/sim_dwa.cpp
   sim_lib/sim_collision.cpp
-  sim_lib/sim_video.cpp
+  sim_lib/sim_A_star.cpp
+  sim_lib/sim_path.cpp
   )
 
 #state controller for vehicle
@@ -144,15 +145,15 @@ target_link_libraries(state_controller
   nav_lib
   )
 
-#state controller for simulation
-# add_executable(sim_state_controller
-#   src/sim_state_controller.cpp
-#   )
+# state controller for simulation
+add_executable(sim_state_controller
+  src/sim_state_controller.cpp
+  )
 
-# target_link_libraries(sim_state_controller
-#   ${catkin_LIBRARIES}
-#   sim_lib
-#   )
+target_link_libraries(sim_state_controller
+  ${catkin_LIBRARIES}
+  sim_lib
+  )
 
 #publish gps long and lat from received path
 add_executable(convert_gps

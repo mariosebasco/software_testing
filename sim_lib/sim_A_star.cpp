@@ -5,7 +5,7 @@
  */
 
 
-#include "A_star.h"
+#include "sim_A_star.h"
 
 /***********************************************************************
  *                                                                     *
@@ -15,8 +15,8 @@
 A_star::A_star() : AperiodicTask() {
   VEHICLE_WIDTH = 0.4;
   
-  odom_sub = nh.subscribe("local/odom", 1, &A_star::OdomCB, this);
-  odom_sub_global = nh.subscribe("odom", 1, &A_star::OdomCBGlobal, this);
+  //odom_sub = nh.subscribe("local/odom", 1, &A_star::OdomCB, this);
+  odom_sub = nh.subscribe("odom", 1, &A_star::OdomCB, this);
   costmap_sub = nh.subscribe("costmap_node/costmap/costmap", 1, &A_star::CostmapCB, this);
   path_sub = nh.subscribe("vehicle_path", 1, &A_star::PathCB, this);
   path_pub = nh.advertise<nav_msgs::Path>("A_star_path", 1);
@@ -30,7 +30,7 @@ A_star::A_star() : AperiodicTask() {
  *********************************************************************/
 int A_star::Init() {
   received_odom = false;
-  received_odom_global = false;
+  //received_odom_global = false;
   received_costmap = false;
   received_path = false;
   
@@ -45,7 +45,7 @@ int A_star::Init() {
  *********************************************************************/
 void A_star::Task() {
 
-  while((!received_odom || !received_costmap || !received_path || !received_odom_global) && ros::ok()) {
+  while((!received_odom || !received_costmap || !received_path) && ros::ok()) {
     ros::spinOnce();
   }
 
@@ -68,8 +68,8 @@ void A_star::Task() {
 
     //convert goal to integer value for A* algorithm
     float map_resolution = costmap.info.resolution;
-    float goal_x_local = path_msg.des_northing - odom_msg_global.pose.pose.position.x;
-    float goal_y_local = path_msg.des_easting - odom_msg_global.pose.pose.position.y;
+    float goal_x_local = path_msg.des_northing - odom_msg.pose.pose.position.x;
+    float goal_y_local = path_msg.des_easting - odom_msg.pose.pose.position.y;
     // float goal_x_local = path_msg.des_northing;
     // float goal_y_local = path_msg.des_easting;
     GOAL_X = int(goal_x_local/map_resolution);
@@ -229,15 +229,15 @@ void A_star::OdomCB(const nav_msgs::Odometry &msg) {
 }
 
 
-/***********************************************************************
- *                                                                     *
- *                          ODOM CALLBACK                              *
- *                                                                     *
- *********************************************************************/
-void A_star::OdomCBGlobal(const nav_msgs::Odometry &msg) {
-  received_odom_global = true;
-  odom_msg_global = msg;
-}
+// /***********************************************************************
+//  *                                                                     *
+//  *                          ODOM CALLBACK                              *
+//  *                                                                     *
+//  *********************************************************************/
+// void A_star::OdomCBGlobal(const nav_msgs::Odometry &msg) {
+//   received_odom_global = true;
+//   odom_msg_global = msg;
+// }
 
 
 /***********************************************************************

@@ -6,7 +6,7 @@
  *
  */
 
-#include "path.h"
+#include "sim_path.h"
 
 
 /***********************************************************************
@@ -56,17 +56,17 @@ void Path::Task() {
   
   //open path and velocity file
   char *pEnd;
-  inFile.open("/home/robot/catkin_ws/src/testing/gps_files/path.txt");
+  inFile.open("/home/robot/catkin_ws/src/testing/gps_files/sim_path.txt");
   if (!inFile) {
     ROS_WARN("unable to open path file");
   }
 
-  velFile.open("/home/robot/catkin_ws/src/testing/gps_files/vel.txt");
+  velFile.open("/home/robot/catkin_ws/src/testing/gps_files/sim_vel.txt");
   if (!velFile) {
     ROS_WARN("unable to open vel file");
   }
 
-  eventFile.open("/home/robot/catkin_ws/src/testing/gps_files/event_file.txt");
+  eventFile.open("/home/robot/catkin_ws/src/testing/gps_files/sim_event_file.txt");
   if (!eventFile) {
     ROS_WARN("unable to open event file");
   }

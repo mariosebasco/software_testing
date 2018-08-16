@@ -10,8 +10,8 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <sys/types.h>
-#include <stdio.h>
-#include <errno.h>
+
+#include "ros/ros.h"
 
 #include "PeriodicTask.h"
 
@@ -37,19 +37,19 @@ int PeriodicTask::Init(char *name, double rate, double *actual_rate, int priorit
 	
 	// initialize semaphore
 	if(sem_init(&mTimerSemaphore, 1, 0) == -1) {
-		printf("%s:Init:sem_init failed", mTaskName);
+		ROS_ERROR("%s:Init:sem_init failed", mTaskName);
 		return -1;
 	}
 
 	// init timer
 	if(InitTimer(priority, rate, actual_rate) == -1) {
-		printf("%s:Init:InitTimer failed", mTaskName);
+		ROS_ERROR("%s:Init:InitTimer failed", mTaskName);
 		return -1;
 	}
 	
 	// start timer thread
 	if(InitThread(&mTimerThreadId, priority, &TimerThread, (void *)this) == -1) {
-		printf("%s:Init:InitThread:mTimerThreadId failed", mTaskName);
+		ROS_ERROR("%s:Init:InitThread:mTimerThreadId failed", mTaskName);
 		return -1;
 	}
 	
@@ -76,7 +76,7 @@ int PeriodicTask::InitTimer(int priority, double rate, double *actual_rate) {
     sevp.sigev_value.sival_ptr = (void *)this;
 	sevp.sigev_notify_attributes = NULL;
     if(timer_create(CLOCK_REALTIME, &sevp, &timerid)) {
-		printf("%s:TimerControlThread:timer_create failed, errno = %d", mTaskName, errno);
+		ROS_ERROR("%s:TimerControlThread:timer_create failed, errno = %d", mTaskName, errno);
 		return -1;
 	}
 
@@ -90,7 +90,7 @@ int PeriodicTask::InitTimer(int priority, double rate, double *actual_rate) {
 	}
 	its.it_interval = its.it_value;
     if(timer_settime(timerid, 0, &its, NULL)) {
-		printf("%s:TimerControlThread:timer_settime failed, errno = %d", mTaskName, errno);
+		ROS_ERROR("%s:TimerControlThread:timer_settime failed, errno = %d", mTaskName, errno);
 		return -1;
 	}
 }
@@ -106,7 +106,7 @@ void PeriodicTask::TimerControlThread(sigval arg) {
 
 	// unblock task thread
 	if(sem_post(&(taskInst->mTimerSemaphore)) == -1) {
-		printf("%s:TimerControlThread:sem_post failed", taskInst->mTaskName);
+		ROS_ERROR("%s:TimerControlThread:sem_post failed", taskInst->mTaskName);
 		exit(1);
 	}
 }
@@ -119,7 +119,7 @@ int PeriodicTask::TimerWait() {
 
 	// wait for timer semaphore
 	if(sem_wait(&(mTimerSemaphore)) == -1) {
-		printf("%s:TimerThread:sem_wait failed", mTaskName);
+		ROS_ERROR("%s:TimerThread:sem_wait failed", mTaskName);
 		return -1;
 	}
 

@@ -11,7 +11,9 @@
 #include <iostream>
 #include <fstream>
 
+#include <ros/ros.h>
 #include <nav_msgs/OccupancyGrid.h>
+#include <geometry_msgs/Twist.h>
 
 #include "track.h"
 #include "collision.h"

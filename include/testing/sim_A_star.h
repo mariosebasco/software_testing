@@ -33,20 +33,19 @@ public:
   int Init();
 
 private:
-  bool received_odom, received_odom_global,  received_costmap, received_path;
+  bool received_odom,  received_costmap, received_path;
   int GOAL_X, GOAL_Y;
   float VEHICLE_WIDTH;
   
   ros::NodeHandle nh;
-  ros::Subscriber costmap_sub, path_sub, odom_sub, odom_sub_global;
+  ros::Subscriber costmap_sub, path_sub, odom_sub;
   ros::Publisher path_pub, rviz_path_pub;
 
-  nav_msgs::Odometry odom_msg, odom_msg_global;
+  nav_msgs::Odometry odom_msg;
   nav_msgs::OccupancyGrid costmap;
   testing::Path_msg path_msg;
 
   void OdomCB(const nav_msgs::Odometry &msg);
-  void OdomCBGlobal(const nav_msgs::Odometry &msg);
   void CostmapCB(const nav_msgs::OccupancyGrid &msg);
   void PathCB(const testing::Path_msg &msg);
   bool CheckCostmap(int _x, int _y);

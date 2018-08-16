@@ -17,8 +17,9 @@
 
 class Video: public AperiodicTask {
 public:
+  bool FINISHED_RECORDING;
+  
   Video();
-
   int Init(double duration_input, int video);
 
 private:

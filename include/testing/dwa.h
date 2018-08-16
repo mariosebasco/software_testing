@@ -14,6 +14,7 @@
 #include <iostream>
 #include <vector>
 #include <fstream>
+#include <atomic>
 
 #include "ros/ros.h"
 #include "nav_msgs/Odometry.h"
@@ -26,8 +27,7 @@
 
 class DWA : public AperiodicTask {
  public:
-  bool REACHED_GOAL, INTERRUPT;
-  float MAX_DIST_FROM_PATH;
+  std::atomic<bool> NO_OBSTACLE_FOUND;
   
   DWA(Collision* _collisionObject);
   int Init();
@@ -37,7 +37,7 @@ class DWA : public AperiodicTask {
     float trans_vel;
     float rot_vel;
   };
-  
+
   bool received_odom, received_path, received_odom_global, received_a_star;
   ros::NodeHandle nh;
   ros::Subscriber odom_sub, odom_sub_global, path_sub, a_star_sub;
@@ -47,6 +47,7 @@ class DWA : public AperiodicTask {
   nav_msgs::Path a_star_path;
   tf::Quaternion odom_quat;
 
+  float MAX_DIST_FROM_PATH;
   float MAX_TRANS_VEL;
   float MAX_ROT_VEL;
   float MAX_TRANS_ACCELERATION;
@@ -60,7 +61,7 @@ class DWA : public AperiodicTask {
   float FindOrientationCost(VelocityStruct _velocity_struct, float _goal_x, float _goal_y, float &dist_to_goal);
   float FindObstacleCost(VelocityStruct _velocity_struct);
   float FindVelocityCost(VelocityStruct _velocity_struct);
-  float FindPathCost(VelocityStruct _velocity_struct);
+  float OptimalPathVel();
   void OdomCallback(const nav_msgs::Odometry &msg);
   void OdomGlobalCB(const nav_msgs::Odometry &msg);
   void AStarCB(const nav_msgs::Path &msg);

@@ -14,56 +14,59 @@
 #include <iostream>
 #include <vector>
 #include <fstream>
+#include <atomic>
 
 #include "ros/ros.h"
 #include "nav_msgs/Odometry.h"
 #include "geometry_msgs/Twist.h"
+#include "nav_msgs/Path.h"
 
 #include "sim_collision.h"
 #include "AperiodicTask.h"
+#include "testing/Path_msg.h"
 
 class DWA : public AperiodicTask {
  public:
-  bool REACHED_GOAL;
-  float GOAL_X, GOAL_Y;//, ORIENTATION;
-  int PATH_POINT;
+  std::atomic<bool> NO_OBSTACLE_FOUND;
   
+  DWA(Collision* _collisionObject);
+  int Init();
+
+ private:
   struct VelocityStruct {
     float trans_vel;
     float rot_vel;
   };
 
-  DWA(Collision* _collisionObject);
-  int Init();
-  void Task();
-
- private:
-  bool received_odom;
+  bool received_odom, received_path, received_odom_global, received_a_star;
   ros::NodeHandle nh;
-  ros::Subscriber odom_sub;
+  ros::Subscriber odom_sub, path_sub, a_star_sub;
   ros::Publisher vel_pub;
   nav_msgs::Odometry odom_msg;
+  testing::Path_msg path_msg;
+  nav_msgs::Path a_star_path;
   tf::Quaternion odom_quat;
 
+  float MAX_DIST_FROM_PATH;
   float MAX_TRANS_VEL;
   float MAX_ROT_VEL;
   float MAX_TRANS_ACCELERATION;
   float MAX_ROT_ACCELERATION;
   float SIM_TIME;
   float RESOLUTION;
-  std::vector<double> NORTHINGS;
-  std::vector<double> EASTINGS;
   
   Collision *collisionObject;
   
-  //std::vector<VelocityStruct> FindDynamicWindow(VelocityStruct _velocity_struct, float _sim_time, float _resolution);
+  void Task();
   float FindOrientationCost(VelocityStruct _velocity_struct, float _goal_x, float _goal_y, float &dist_to_goal);
   float FindObstacleCost(VelocityStruct _velocity_struct);
   float FindVelocityCost(VelocityStruct _velocity_struct);
-  bool ReachedGoal(float _goal_x, float _goal_y);
-  void OdomCallback(nav_msgs::Odometry msg);
+  float OptimalPathVel();
+  void OdomCallback(const nav_msgs::Odometry &msg);
+  void AStarCB(const nav_msgs::Path &msg);
+  void PathCB(const testing::Path_msg &msg);
   void PublishVel(float trans_vel, float rot_vel);
-  void FacePath(float _x_des, float _y_des);
+  float FindDistFromPath(float _x1, float _y1, float _x2, float _y2);
 };
 
 #endif

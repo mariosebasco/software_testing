@@ -28,7 +28,6 @@ TrackPoint::TrackPoint() : AperiodicTask() {
 int TrackPoint::Init() {
   received_odom = false;
   received_path = false;
-  INTERRUPT = false;
 
   return AperiodicTask::Init((char *) "trackTask", 40);
 }
@@ -42,7 +41,7 @@ int TrackPoint::Init() {
 void TrackPoint::Task() {
 
   //wait for odom data before starting this function
-  while(!received_odom || !received_path) {
+  while((!received_odom || !received_path) && ros::ok()) {
     ros::spinOnce();
   }
   
@@ -53,8 +52,9 @@ void TrackPoint::Task() {
   float L = 0.4;
 
   ros::Rate loop_rate(10);
-  while(ros::ok() && !INTERRUPT) {
-
+  while(ros::ok()) {
+    TriggerWait();
+    
     //update goal point and max speed
     des_northing = path_msg.des_northing;
     des_easting = path_msg.des_easting;
@@ -70,15 +70,21 @@ void TrackPoint::Task() {
     float theta_curr = getYaw(odom_quat);// + imu_drift;
     float easting_vehicle = (des_northing - odom_x)*sin(-theta_curr) + (des_easting - odom_y)*cos(-theta_curr);
     float curvature = 2*easting_vehicle/(point_dist*point_dist);
-        
+    float rad_curvature;
+    
     //given curvature find velocities
-    float rad_curvature = 1/curvature;
-    if(rad_curvature >= 0.0) {
+    if(curvature == 0.0) {
+      ang_vel = 0.0;
+      lin_vel = curr_max_vel;
+    }
+    else if(curvature > 0.0) {
+      rad_curvature = 1/curvature;
       float v_left = curr_max_vel;
       ang_vel = v_left/(rad_curvature + L/2.0);
       lin_vel = ang_vel*rad_curvature;
     }
     else {
+      rad_curvature = 1/curvature;
       float v_right = curr_max_vel;
       ang_vel = v_right/(rad_curvature - L/2.0);
       lin_vel = ang_vel*rad_curvature;      
@@ -89,7 +95,7 @@ void TrackPoint::Task() {
     loop_rate.sleep();
   }
 
-  //You are done tracking, or have been interrupted
+  //You are done tracking
   PublishSpeed(0.0, 0.0);
 }
 
